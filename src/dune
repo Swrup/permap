@@ -1,3 +1,36 @@
 (executable
- (name permap)
- (modules permap))
+ (public_name permap)
+ (modules content login permap register template user)
+ (libraries
+  dream
+  emile
+  omd
+  lambdasoup)
+ (preprocess (pps lwt_ppx)))
+
+(rule
+ (targets template.ml)
+ (deps template.eml.html)
+ (action
+  (run dream_eml %{deps} --workspace %{workspace_root})))
+
+(rule
+ (targets login.ml)
+ (deps login.eml.html)
+ (action
+  (run dream_eml %{deps} --workspace %{workspace_root})))
+
+(rule
+ (targets register.ml)
+ (deps register.eml.html)
+ (action
+  (run dream_eml %{deps} --workspace %{workspace_root})))
+
+(rule
+ (target content.ml)
+ (deps
+  (source_tree content))
+ (action
+  (with-stdout-to
+   %{null}
+   (run ocaml-crunch -m plain content -o %{target}))))

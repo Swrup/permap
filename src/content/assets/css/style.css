@@ -1,0 +1,23 @@
+body {
+  padding-top: 3rem;
+  padding-bottom: 3rem;
+  color: #5a5a5a;
+  background-color: #EEEEEE;
+  line-height: 1.6;
+  font-size: 18px;
+}
+
+.featurette-divider {
+  margin: 5rem 0;
+}
+
+#page-title {
+  text-align: center;
+}
+
+blockquote.blockquote {
+  border-left: 6px solid #3131e0;
+  border-radius: 6px;
+  padding-left: 16px;
+  background-color:  #c0c0f0;
+}
