@@ -48,14 +48,24 @@ let register ~email ~nick ~password =
   if not valid then
     Error "Something is wrong"
   else
-    (* TODO: add check uniqueness of id *)
     let open Sqlite3_utils in
-    let res =
+    let unique =
       Db.with_db (fun db ->
-          exec_raw_args db "INSERT INTO user VALUES (?, ?, ?);"
-            [| Data.TEXT nick; Data.TEXT password; Data.TEXT email |]
+          exec_raw_args db
+            "SELECT EXISTS(SELECT 1 FROM user WHERE nick=? OR email=?);"
+            [| Data.TEXT nick; Data.TEXT email |]
             ~f:Cursor.to_list )
     in
-    match res with
-    | Ok res -> Ok res
+    match unique with
+    | Ok [ [| Data.INT 0L |] ] -> (
+      let res =
+        Db.with_db (fun db ->
+            exec_raw_args db "INSERT INTO user VALUES (?, ?, ?);"
+              [| Data.TEXT nick; Data.TEXT password; Data.TEXT email |]
+              ~f:Cursor.to_list )
+      in
+      match res with
+      | Ok res -> Ok res
+      | Error e -> Error (Format.sprintf "db error: %s" (Rc.to_string e)) )
+    | Ok _ -> Error "nick or email already exists"
     | Error e -> Error (Format.sprintf "db error: %s" (Rc.to_string e))

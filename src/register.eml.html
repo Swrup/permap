@@ -5,7 +5,7 @@ let f ?email ?nick ?password request =
 %     begin match User.register ~email ~nick ~password with
 %     | Error e ->
 Error: <%s e %>
-%     | Ok _ ->
+%     | Ok _ (* TODO: do not match on _ *) ->
 User created !
 %     end;
 %   | _ ->
