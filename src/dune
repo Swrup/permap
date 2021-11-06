@@ -1,12 +1,9 @@
 (executable
  (public_name permap)
- (modules content login permap register template user)
- (libraries
-  dream
-  emile
-  omd
-  lambdasoup)
- (preprocess (pps lwt_ppx)))
+ (modules app content db login permap register template user)
+ (libraries bos directories dream emile omd sqlite3_utils lambdasoup)
+ (preprocess
+  (pps lwt_ppx)))
 
 (rule
  (targets template.ml)

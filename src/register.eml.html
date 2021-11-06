@@ -2,10 +2,10 @@ let f ?email ?nick ?password request =
 
 %   begin match email, nick, password with
 %   | Some email, Some nick, Some password ->
-%     begin match User.make ~email ~nick ~password with
+%     begin match User.register ~email ~nick ~password with
 %     | Error e ->
 Error: <%s e %>
-%     | Ok () ->
+%     | Ok _ ->
 User created !
 %     end;
 %   | _ ->
