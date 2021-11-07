@@ -36,6 +36,7 @@ let login ~nick ~password request =
       Ok ()
     else
       Error "wrong password"
+  | Ok [] -> Error (Format.sprintf "user `%s` doesn't exist" nick)
   | Ok _ -> Error "incoherent db answer"
   | Error e -> Error (Format.sprintf "db error: %s" (Rc.to_string e))
 
