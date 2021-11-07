@@ -60,12 +60,14 @@ let login_post request =
 
 let user request = render_unsafe (User.list ()) request
 
-let user_profile request = render_unsafe (User.profile request) request
+let user_profile request = render_unsafe (User.public_profile request) request
 
 let logout request =
   let _ = Dream.invalidate_session request in
   let content = "Logged out !" in
   render_unsafe content request
+
+let profile request = render_unsafe (User.profile request) request
 
 let () =
   Dream.run @@ Dream.logger @@ Dream.memory_sessions
@@ -79,5 +81,6 @@ let () =
        ; Dream.get "/user" user
        ; Dream.get "/user/:user" user_profile
        ; Dream.get "/logout" logout
+       ; Dream.get "/profile" profile
        ]
   @@ Dream.not_found

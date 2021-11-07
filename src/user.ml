@@ -102,7 +102,7 @@ let list () =
          | _ -> failwith "error" ) )
       users
 
-let profile request =
+let public_profile request =
   let nick = Dream.param "user" request in
   let open Sqlite3_utils in
   let user =
@@ -116,3 +116,8 @@ let profile request =
       email
   | Ok _ -> "incoherent db answer"
   | Error e -> Format.sprintf "db error: %s" (Rc.to_string e)
+
+let profile request =
+  match Dream.session "nick" request with
+  | None -> "not logged in"
+  | Some nick -> Format.sprintf "Hello %s !" nick
