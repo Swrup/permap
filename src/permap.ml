@@ -30,17 +30,14 @@ let asset_loader _root path _request =
   | None -> Dream.empty `Not_Found
   | Some asset -> Dream.respond asset
 
-let page path =
-  match Content.read (path ^ ".md") with
-  | None -> None
-  | Some page -> Some (Omd.of_string page |> Omd.to_html)
-
-let page_of_name name request =
-  match page name with
+let page name request =
+  match Content.read (name ^ ".md") with
   | None -> Dream.empty `Not_Found
-  | Some content -> render_unsafe content request
+  | Some page ->
+    let content = Omd.of_string page |> Omd.to_html in
+    render_unsafe content request
 
-let homepage request = page_of_name "index" request
+let homepage request = page "index" request
 
 let register_get request = render_unsafe (Register.f request) request
 
