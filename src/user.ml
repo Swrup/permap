@@ -19,10 +19,20 @@ let () =
         log "can't create table user: %s" (Sqlite3.Rc.to_string e) )
 
 let login ~nick ~password =
-  if nick = nick && password = password then
-    Ok ()
-  else
-    Error "DDD"
+  let open Sqlite3_utils in
+  let good_password =
+    Db.with_db (fun db ->
+        exec_raw_args db "SELECT password FROM user WHERE nick=?;"
+          [| Data.TEXT nick |] ~f:Cursor.to_list )
+  in
+  match good_password with
+  | Ok [ [| Data.TEXT good_password |] ] ->
+    if Bcrypt.verify password (Bcrypt.hash_of_string good_password) then
+      Ok ()
+    else
+      Error "wrong password"
+  | Ok _ -> Error "incoherent db answer"
+  | Error e -> Error (Format.sprintf "db error: %s" (Rc.to_string e))
 
 let register ~email ~nick ~password =
   (* TODO: remove bad characters (e.g. delthas) *)
@@ -44,7 +54,9 @@ let register ~email ~nick ~password =
 
   let valid = valid_nick && valid_email && valid_password in
 
-  (* TODO: HASH PASSWORD XD *)
+  let password = Bcrypt.hash password in
+  let password = Bcrypt.string_of_hash password in
+
   if not valid then
     Error "Something is wrong"
   else

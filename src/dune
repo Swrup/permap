@@ -1,7 +1,15 @@
 (executable
  (public_name permap)
  (modules app content db login permap register template user)
- (libraries bos directories dream emile omd sqlite3_utils lambdasoup)
+ (libraries
+  bos
+  directories
+  dream
+  emile
+  omd
+  safepass
+  sqlite3_utils
+  lambdasoup)
  (preprocess
   (pps lwt_ppx)))
 
