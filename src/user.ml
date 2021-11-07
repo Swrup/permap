@@ -2,6 +2,7 @@ type t =
   { nick : string
   ; password : string
   ; email : string (* TODO: make email optional ? *)
+  ; bio : string
   }
 
 let () =
@@ -10,7 +11,7 @@ let () =
     Db.with_db (fun db ->
         exec0 db
           "CREATE TABLE IF NOT EXISTS user (nick TEXT, password TEXT, email \
-           TEXT);" )
+           TEXT, bio TEXT);" )
   in
   match res with
   | Ok () -> ()
@@ -76,8 +77,12 @@ let register ~email ~nick ~password =
     | Ok [ [| Data.INT 0L |] ] -> (
       let res =
         Db.with_db (fun db ->
-            exec_raw_args db "INSERT INTO user VALUES (?, ?, ?);"
-              [| Data.TEXT nick; Data.TEXT password; Data.TEXT email |]
+            exec_raw_args db "INSERT INTO user VALUES (?, ?, ?, ?);"
+              [| Data.TEXT nick
+               ; Data.TEXT password
+               ; Data.TEXT email
+               ; Data.TEXT ""
+              |]
               ~f:Cursor.to_list )
       in
       match res with
@@ -111,9 +116,11 @@ let public_profile request =
           ~f:Cursor.to_list )
   in
   match user with
-  | Ok [ [| Data.TEXT nick; Data.TEXT password; Data.TEXT email |] ] ->
-    Format.sprintf "nick = `%s`; password = `%s`; email = `%s`" nick password
-      email
+  | Ok
+      [ [| Data.TEXT nick; Data.TEXT password; Data.TEXT email; Data.TEXT bio |]
+      ] ->
+    Format.sprintf "nick = `%s`; password = `%s`; email = `%s`; bio = '%s'" nick
+      password email bio
   | Ok _ -> "incoherent db answer"
   | Error e -> Format.sprintf "db error: %s" (Rc.to_string e)
 
@@ -121,3 +128,32 @@ let profile request =
   match Dream.session "nick" request with
   | None -> "not logged in"
   | Some nick -> Format.sprintf "Hello %s !" nick
+
+let update_bio bio nick =
+  let valid = true in
+  (* TODO check bio len and FORBIDEN WORDS *)
+  if not valid then
+    Error "Not biologic"
+  else
+    let open Sqlite3_utils in
+    let res =
+      Db.with_db (fun db ->
+          exec_raw_args db "UPDATE user SET bio=? WHERE nick=?;"
+            [| Data.TEXT bio; Data.TEXT nick |]
+            ~f:Cursor.to_list )
+    in
+    match res with
+    | Ok _ -> Ok ()
+    | Error e -> Error (Format.sprintf "db error: %s" (Rc.to_string e))
+
+let get_bio nick =
+  let open Sqlite3_utils in
+  let res =
+    Db.with_db (fun db ->
+        exec_raw_args db "SELECT bio FROM user WHERE nick=?;"
+          [| Data.TEXT nick |] ~f:Cursor.to_list )
+  in
+  match res with
+  | Ok [ [| Data.TEXT bio |] ] -> Ok bio
+  | Error e -> Error (Format.sprintf "db error: %s" (Rc.to_string e))
+  | Ok _ -> Error "incoherent db result"

@@ -1,6 +1,6 @@
 (executable
  (public_name permap)
- (modules app content db login permap register template user)
+ (modules app content db login permap register template user user_profile)
  (libraries
   bos
   directories
@@ -28,6 +28,12 @@
 (rule
  (targets register.ml)
  (deps register.eml.html)
+ (action
+  (run dream_eml %{deps} --workspace %{workspace_root})))
+
+(rule
+ (targets user_profile.ml)
+ (deps user_profile.eml.html)
  (action
   (run dream_eml %{deps} --workspace %{workspace_root})))
 

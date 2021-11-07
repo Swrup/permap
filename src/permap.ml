@@ -64,7 +64,12 @@ let logout request =
   let content = "Logged out !" in
   render_unsafe content request
 
-let profile request = render_unsafe (User.profile request) request
+let profile_get request = render_unsafe (User_profile.f request) request
+
+let profile_post request =
+  match%lwt Dream.form request with
+  | `Ok [ ("bio", bio) ] -> render_unsafe (User_profile.f ~bio request) request
+  | _ -> assert false
 
 let () =
   Dream.run @@ Dream.logger @@ Dream.memory_sessions
@@ -78,6 +83,7 @@ let () =
        ; Dream.get "/user" user
        ; Dream.get "/user/:user" user_profile
        ; Dream.get "/logout" logout
-       ; Dream.get "/profile" profile
+       ; Dream.get "/profile" profile_get
+       ; Dream.post "/profile" profile_post
        ]
   @@ Dream.not_found
