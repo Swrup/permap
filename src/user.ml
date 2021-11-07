@@ -18,7 +18,7 @@ let () =
     Dream.warning (fun log ->
         log "can't create table user: %s" (Sqlite3.Rc.to_string e) )
 
-let login ~nick ~password =
+let login ~nick ~password request =
   let open Sqlite3_utils in
   let good_password =
     Db.with_db (fun db ->
@@ -28,6 +28,10 @@ let login ~nick ~password =
   match good_password with
   | Ok [ [| Data.TEXT good_password |] ] ->
     if Bcrypt.verify password (Bcrypt.hash_of_string good_password) then
+      let _ =
+        let%lwt () = Dream.invalidate_session request in
+        Dream.put_session "nick" nick request
+      in
       Ok ()
     else
       Error "wrong password"

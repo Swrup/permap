@@ -2,7 +2,7 @@ let f ?nick ?password request =
 
 %   begin match nick, password with
 %   | Some nick, Some password ->
-%     begin match User.login ~nick ~password with
+%     begin match User.login ~nick ~password request with
 %     | Error e ->
 Error: <%s e %>
 %     | Ok () ->
