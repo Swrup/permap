@@ -91,12 +91,12 @@ let profile request =
   let open Sqlite3_utils in
   let user =
     Db.with_db (fun db ->
-      exec_raw_args db "SELECT * FROM user WHERE nick=?;" [| Data.TEXT nick |]
-      ~f:Cursor.to_list
-    )
+        exec_raw_args db "SELECT * FROM user WHERE nick=?;" [| Data.TEXT nick |]
+          ~f:Cursor.to_list )
   in
   match user with
-  | Ok [[| Data.TEXT nick; Data.TEXT password; Data.TEXT email |]] ->
-    Format.sprintf "nick = `%s`; password = `%s`; email = `%s`" nick password email
+  | Ok [ [| Data.TEXT nick; Data.TEXT password; Data.TEXT email |] ] ->
+    Format.sprintf "nick = `%s`; password = `%s`; email = `%s`" nick password
+      email
   | Ok _ -> "incoherent db answer"
   | Error e -> Format.sprintf "db error: %s" (Rc.to_string e)
