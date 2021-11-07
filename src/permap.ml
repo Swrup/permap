@@ -41,7 +41,23 @@ let page_of_name name =
 
 let homepage _request = page_of_name "index"
 
-let register _request = page_of_name "register"
+let register_get request = render_unsafe (Register.f request)
+
+let register_post request =
+  match%lwt Dream.form request with
+  | `Ok [ ("email", email); ("nick", nick); ("password", password) ] ->
+    render_unsafe (Register.f ~nick ~email ~password request)
+  | _ -> assert false
+
+let login_get request = render_unsafe (Login.f request)
+
+let login_post request =
+  match%lwt Dream.form request with
+  | `Ok [ ("nick", nick); ("password", password) ] ->
+    render_unsafe (Login.f ~nick ~password request)
+  | _ -> assert false
+
+let user request = render_unsafe (User.list request)
 
 let () =
   Dream.run ~interface:"0.0.0.0"
@@ -49,19 +65,10 @@ let () =
   @@ Dream.router
        [ Dream.get "/assets/**" (Dream.static ~loader:asset_loader "")
        ; Dream.get "/" homepage
-       ; Dream.get "/register" (fun request ->
-             render_unsafe (Register.f request) )
-       ; Dream.post "/register" (fun request ->
-             match%lwt Dream.form request with
-             | `Ok [ ("email", email); ("nick", nick); ("password", password) ]
-               ->
-               render_unsafe (Register.f ~nick ~email ~password request)
-             | _ -> assert false )
-       ; Dream.get "/login" (fun request -> render_unsafe (Login.f request))
-       ; Dream.post "/login" (fun request ->
-             match%lwt Dream.form request with
-             | `Ok [ ("nick", nick); ("password", password) ] ->
-               render_unsafe (Login.f ~nick ~password request)
-             | _ -> assert false )
+       ; Dream.get "/register" register_get
+       ; Dream.post "/register" register_post
+       ; Dream.get "/login" login_get
+       ; Dream.post "/login" login_post
+       ; Dream.get "/user" user
        ]
   @@ Dream.not_found

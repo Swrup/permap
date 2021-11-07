@@ -69,3 +69,19 @@ let register ~email ~nick ~password =
       | Error e -> Error (Format.sprintf "db error: %s" (Rc.to_string e)) )
     | Ok _ -> Error "nick or email already exists"
     | Error e -> Error (Format.sprintf "db error: %s" (Rc.to_string e))
+
+let list _request =
+  let open Sqlite3_utils in
+  let users =
+    Db.with_db (fun db ->
+        exec_raw_args db "SELECT nick FROM user;" [||] ~f:Cursor.to_list )
+  in
+  match users with
+  | Error e -> Format.sprintf "db error: %s" (Rc.to_string e)
+  | Ok users ->
+    Format.asprintf "<ul>%a</ul>"
+      (Format.pp_print_list (fun fmt -> function
+         | [| Data.TEXT s |] ->
+           Format.fprintf fmt {|<li><a href="/user/%s">%s</a></li>|} s s
+         | _ -> failwith "error" ) )
+      users
