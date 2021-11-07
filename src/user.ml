@@ -70,7 +70,7 @@ let register ~email ~nick ~password =
     | Ok _ -> Error "nick or email already exists"
     | Error e -> Error (Format.sprintf "db error: %s" (Rc.to_string e))
 
-let list _request =
+let list () =
   let open Sqlite3_utils in
   let users =
     Db.with_db (fun db ->
@@ -85,3 +85,18 @@ let list _request =
            Format.fprintf fmt {|<li><a href="/user/%s">%s</a></li>|} s s
          | _ -> failwith "error" ) )
       users
+
+let profile request =
+  let nick = Dream.param "user" request in
+  let open Sqlite3_utils in
+  let user =
+    Db.with_db (fun db ->
+      exec_raw_args db "SELECT * FROM user WHERE nick=?;" [| Data.TEXT nick |]
+      ~f:Cursor.to_list
+    )
+  in
+  match user with
+  | Ok [[| Data.TEXT nick; Data.TEXT password; Data.TEXT email |]] ->
+    Format.sprintf "nick = `%s`; password = `%s`; email = `%s`" nick password email
+  | Ok _ -> "incoherent db answer"
+  | Error e -> Format.sprintf "db error: %s" (Rc.to_string e)

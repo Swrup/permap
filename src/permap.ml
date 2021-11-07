@@ -57,7 +57,9 @@ let login_post request =
     render_unsafe (Login.f ~nick ~password request)
   | _ -> assert false
 
-let user request = render_unsafe (User.list request)
+let user _request = render_unsafe (User.list ())
+
+let user_profile request = render_unsafe (User.profile request)
 
 let () =
   Dream.run ~interface:"0.0.0.0"
@@ -70,5 +72,6 @@ let () =
        ; Dream.get "/login" login_get
        ; Dream.post "/login" login_post
        ; Dream.get "/user" user
+       ; Dream.get "/user/:user" user_profile
        ]
   @@ Dream.not_found
