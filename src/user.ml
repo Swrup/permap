@@ -120,7 +120,7 @@ let public_profile request =
       [ [| Data.TEXT nick; Data.TEXT password; Data.TEXT email; Data.TEXT bio |]
       ] ->
     Format.sprintf "nick = `%s`; password = `%s`; email = `%s`; bio = '%s'" nick
-      password email bio
+      password email (Dream.html_escape bio)
   | Ok _ -> "incoherent db answer"
   | Error e -> Format.sprintf "db error: %s" (Rc.to_string e)
 
