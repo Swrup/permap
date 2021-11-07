@@ -62,9 +62,13 @@ let user request = render_unsafe (User.list ()) request
 
 let user_profile request = render_unsafe (User.profile request) request
 
+let logout request =
+  let _ = Dream.invalidate_session request in
+  let content = "Logged out !" in
+  render_unsafe content request
+
 let () =
-  Dream.run ~interface:"0.0.0.0"
-  @@ Dream.logger @@ Dream.memory_sessions
+  Dream.run @@ Dream.logger @@ Dream.memory_sessions
   @@ Dream.router
        [ Dream.get "/assets/**" (Dream.static ~loader:asset_loader "")
        ; Dream.get "/" homepage
@@ -74,5 +78,6 @@ let () =
        ; Dream.post "/login" login_post
        ; Dream.get "/user" user
        ; Dream.get "/user/:user" user_profile
+       ; Dream.get "/logout" logout
        ]
   @@ Dream.not_found
