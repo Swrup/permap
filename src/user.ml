@@ -3,6 +3,7 @@ type t =
   ; password : string
   ; email : string (* TODO: make email optional ? *)
   ; bio : string
+  ; avatar : string
   }
 
 let () =
@@ -11,7 +12,7 @@ let () =
     Db.with_db (fun db ->
         exec0 db
           "CREATE TABLE IF NOT EXISTS user (nick TEXT, password TEXT, email \
-           TEXT, bio TEXT);" )
+           TEXT, bio TEXT, avatar BLOB);" )
   in
   match res with
   | Ok () -> ()
@@ -78,11 +79,12 @@ let register ~email ~nick ~password =
     | Ok [ [| Data.INT 0L |] ] -> (
       let res =
         Db.with_db (fun db ->
-            exec_raw_args db "INSERT INTO user VALUES (?, ?, ?, ?);"
+            exec_raw_args db "INSERT INTO user VALUES (?, ?, ?, ?, ?);"
               [| Data.TEXT nick
                ; Data.TEXT password
                ; Data.TEXT email
                ; Data.TEXT ""
+               ; Data.BLOB ""
               |]
               ~f:Cursor.to_list )
       in
@@ -118,10 +120,18 @@ let public_profile request =
   in
   match user with
   | Ok
-      [ [| Data.TEXT nick; Data.TEXT password; Data.TEXT email; Data.TEXT bio |]
+      [ [| Data.TEXT nick
+         ; Data.TEXT password
+         ; Data.TEXT email
+         ; Data.TEXT bio
+         ; Data.BLOB _
+        |]
       ] ->
-    Format.sprintf "nick = `%s`; password = `%s`; email = `%s`; bio = '%s'" nick
-      password email (Dream.html_escape bio)
+    Format.sprintf
+      {|nick = `%s`; password = `%s`; email = `%s`; bio = '%s';
+    <img src="/user/%s/avatar" class="img-thumbnail" alt="Your avatar picture">
+|}
+      nick password email (Dream.html_escape bio) nick
   | Ok _ -> "incoherent db answer"
   | Error e -> Format.sprintf "db error: %s" (Rc.to_string e)
 
@@ -158,3 +168,42 @@ let get_bio nick =
   | Ok [ [| Data.TEXT bio |] ] -> Ok bio
   | Error e -> Error (Format.sprintf "db error: %s" (Rc.to_string e))
   | Ok _ -> Error "incoherent db result"
+
+let get_avatar nick =
+  let open Sqlite3_utils in
+  let res =
+    Db.with_db (fun db ->
+        exec_raw_args db "SELECT avatar FROM user WHERE nick=?;"
+          [| Data.TEXT nick |] ~f:Cursor.to_list )
+  in
+  match res with
+  | Ok [ [| Data.BLOB avatar |] ] ->
+    if String.length avatar = 0 then
+      (* TODO default avatar *)
+      Ok None
+    else
+      Ok (Some avatar)
+  | Error e -> Error (Format.sprintf "db error: %s" (Rc.to_string e))
+  | Ok _ -> Error "incoherent db result"
+
+let upload_avatar files nick =
+  match files with
+  | [] -> Error "No file provided"
+  | [ (_, content) ] -> (
+    (* TODO validate image data with konan etc*)
+    (* TODO file_name in db??*)
+    let valid = true in
+    if not valid then
+      Error "Invalid image"
+    else
+      let open Sqlite3_utils in
+      let res =
+        Db.with_db (fun db ->
+            exec_raw_args db "UPDATE user SET avatar=? WHERE nick=?;"
+              [| Data.BLOB content; Data.TEXT nick |]
+              ~f:Cursor.to_list )
+      in
+      match res with
+      | Ok _ -> Ok ()
+      | Error e -> Error (Format.sprintf "db error: %s" (Rc.to_string e)) )
+  | _files -> Error "More than one file provided"

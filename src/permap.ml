@@ -45,7 +45,14 @@ let register_post request =
   match%lwt Dream.form request with
   | `Ok [ ("email", email); ("nick", nick); ("password", password) ] ->
     render_unsafe (Register.f ~nick ~email ~password request) request
-  | _ -> assert false
+  | `Ok _
+  | `Many_tokens _
+  | `Missing_token _
+  | `Invalid_token _
+  | `Wrong_session _
+  | `Expired _
+  | `Wrong_content_type ->
+    assert false
 
 let login_get request = render_unsafe (Login.f request) request
 
@@ -64,12 +71,65 @@ let logout request =
   let content = "Logged out !" in
   render_unsafe content request
 
-let profile_get request = render_unsafe (User_profile.f request) request
+let profile_get request =
+  match Dream.session "nick" request with
+  | None -> render_unsafe "Not logged in" request
+  | Some nick ->
+    let bio =
+      match User.get_bio nick with
+      | Ok bio -> bio
+      | Error e -> e
+    in
+    render_unsafe (User_profile.f nick bio request) request
 
 let profile_post request =
-  match%lwt Dream.form request with
-  | `Ok [ ("bio", bio) ] -> render_unsafe (User_profile.f ~bio request) request
-  | _ -> assert false
+  match Dream.session "nick" request with
+  | None -> render_unsafe "Not logged in" request
+  | Some nick -> (
+    match%lwt Dream.form request with
+    | `Ok [ ("bio", bio) ] ->
+      let res =
+        match User.update_bio bio nick with
+        | Ok () -> "Bio updated!"
+        | Error e -> e
+      in
+      render_unsafe res request
+    | `Ok _
+    | `Many_tokens _
+    | `Missing_token _
+    | `Invalid_token _
+    | `Wrong_session _
+    | `Expired _
+    | `Wrong_content_type -> (
+      match%lwt Dream.multipart request with
+      | `Ok [ ("files", files) ] ->
+        let res =
+          match User.upload_avatar files nick with
+          | Ok () -> "Avatar was uploaded!"
+          | Error e -> e
+        in
+        render_unsafe res request
+      | `Ok _ -> Dream.empty `Bad_Request
+      | `Expired _
+      | `Many_tokens _
+      | `Missing_token _
+      | `Invalid_token _
+      | `Wrong_session _
+      | `Wrong_content_type ->
+        Dream.empty `Bad_Request ) )
+
+let avatar_image request =
+  let nick = Dream.param "user" request in
+  let avatar = User.get_avatar nick in
+  match avatar with
+  | Ok (Some avatar) ->
+    Dream.respond ~headers:[ ("Content-Type", "image") ] avatar
+  | Ok None
+  | Error _ -> (
+    match Content.read "/assets/img/default_avatar.png" with
+    | None -> Dream.empty `Not_Found
+    | Some avatar -> Dream.respond ~headers:[ ("Content-Type", "image") ] avatar
+    )
 
 let () =
   Dream.run @@ Dream.logger @@ Dream.memory_sessions
@@ -82,6 +142,7 @@ let () =
        ; Dream.post "/login" login_post
        ; Dream.get "/user" user
        ; Dream.get "/user/:user" user_profile
+       ; Dream.get "/user/:user/avatar" avatar_image
        ; Dream.get "/logout" logout
        ; Dream.get "/profile" profile_get
        ; Dream.post "/profile" profile_post

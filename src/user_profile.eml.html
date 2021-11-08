@@ -1,15 +1,5 @@
-let f ?bio request =
-% begin match Dream.session "nick" request with
-% | None ->
-not logged in
-% | Some nick ->
-%begin match bio with
-%   | None ->
-% let bio = match User.get_bio nick with
-%    | Ok bio -> bio
-%    | Error e -> e
-%in
-                <%s  Format.sprintf "Hello %s !" nick %>
+let f nick bio request =
+<%s  Format.sprintf "Hello %s !" nick %>
     <%s! Dream.form_tag ~action:"/profile" request %>
       <div class="mb-3">
         <label for="bio" class="form-label">Bio</label>
@@ -18,12 +8,9 @@ not logged in
       </div>
       <button type="submit" class="btn btn-primary">Save</button>
     </form>
-%   | Some bio ->
-% begin match User.update_bio bio nick with
-%    | Ok () ->
-    Bio updated !
-%    | Error e ->
-    <%s e %>
-%    end;
-%   end;
-%end;
+
+    <img src="/user/<%s nick %>/avatar" class="img-thumbnail" alt="Your avatar picture">
+    <%s! Dream.form_tag ~action:"/profile" ~enctype:`Multipart_form_data request %>
+      <input name="files" type="file" multiple>
+      <button>Submit!</button>
+    </form>
