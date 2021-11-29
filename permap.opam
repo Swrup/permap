@@ -4,7 +4,7 @@ synopsis: "OCaml library/executable to TODO"
 description: "permap is an OCaml library/executable to TODO."
 maintainer: ["TODO"]
 authors: ["TODO"]
-license: "ISC"
+license: "AGPL-3.0-or-later"
 tags: ["permap" "TODO" "TODO" "TODO" "TODO"]
 depends: [
   "dune" {>= "2.8"}

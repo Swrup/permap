@@ -2,7 +2,7 @@
 
 (name permap)
 
-(license ISC)
+(license AGPL-3.0-or-later) 
 
 (authors "TODO")
 
