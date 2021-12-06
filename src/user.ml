@@ -9,15 +9,8 @@ type t =
 module Q = struct
   let create_user_table =
     Caqti_request.exec Caqti_type.unit
-      {|
-      CREATE TABLE IF NOT EXISTS user (
-         nick TEXT,
-         password TEXT,
-         email TEXT,
-         bio TEXT,
-         avatar BLOB
-      );
-    |}
+      "CREATE TABLE IF NOT EXISTS user (nick TEXT, password TEXT, email TEXT, \
+       bio TEXT, avatar BLOB);"
 
   let get_password =
     Caqti_request.find_opt Caqti_type.string Caqti_type.string
