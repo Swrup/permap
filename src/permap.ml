@@ -131,6 +131,8 @@ let avatar_image request =
     | Some avatar -> Dream.respond ~headers:[ ("Content-Type", "image") ] avatar
     )
 
+let map request = page "map" request
+
 let () =
   Dream.run @@ Dream.logger @@ Dream.memory_sessions
   @@ Dream.router
@@ -140,6 +142,7 @@ let () =
        ; Dream.post "/register" register_post
        ; Dream.get "/login" login_get
        ; Dream.post "/login" login_post
+       ; Dream.get "/map" map
        ; Dream.get "/user" user
        ; Dream.get "/user/:user" user_profile
        ; Dream.get "/user/:user/avatar" avatar_image

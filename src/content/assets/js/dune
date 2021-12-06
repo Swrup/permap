@@ -1,0 +1,8 @@
+(rule
+ (target map.js)
+ (deps
+  (file ../../../map.bc.js))
+ (action
+  (with-stdout-to
+   %{target}
+   (cat ../../../map.bc.js))))

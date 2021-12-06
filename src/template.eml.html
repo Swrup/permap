@@ -5,6 +5,7 @@ let render_unsafe ~title ~content request =
       <title><%s title %> | Permap</title>
       <link rel="icon" type="image/svg+xml" href="/assets/img/favicon.png">
       <link href="/assets/css/bootstrap.min.css" rel="stylesheet"/>
+      <link href="/assets/css/leaflet.css" rel="stylesheet">
       <link href="/assets/css/style.css" rel="stylesheet">
     </head>
     <body>
@@ -37,6 +38,9 @@ let render_unsafe ~title ~content request =
                           </li>
 % end;
                           <li class="nav-item">
+                              <a class="nav-link" href="/map">Map</a>
+                          </li>
+                          <li class="nav-item">
                               <a class="nav-link" href="/user">Users</a>
                           </li>
                       </ul>
@@ -60,5 +64,6 @@ let render_unsafe ~title ~content request =
         </footer>
       </main>
       <script src="/assets/js/bootstrap.bundle.min.js"></script>
+      <script type="text/javascript" src="/assets/js/map.js" defer="defer"></script>
     </body>
   </html>

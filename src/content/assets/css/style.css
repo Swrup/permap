@@ -21,3 +21,8 @@ blockquote.blockquote {
   padding-left: 16px;
   background-color:  #c0c0f0;
 }
+
+#map {
+  height: 800px;
+  width: 600px;
+}

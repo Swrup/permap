@@ -13,6 +13,16 @@
  (preprocess
   (pps lwt_ppx)))
 
+(executable
+ (name map)
+ (modules map)
+ (libraries js_of_ocaml brr)
+ (modes js)
+ (js_of_ocaml
+  (javascript_files leaflet/leaflet.js))
+ (preprocess
+  (pps js_of_ocaml-ppx)))
+
 (rule
  (targets template.ml)
  (deps template.eml.html)
@@ -40,7 +50,8 @@
 (rule
  (target content.ml)
  (deps
-  (source_tree content))
+  (source_tree content)
+  (file content/assets/js/map.js))
  (action
   (with-stdout-to
    %{null}
