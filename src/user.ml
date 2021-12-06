@@ -16,10 +16,10 @@ module Q = struct
     Caqti_request.find_opt Caqti_type.string Caqti_type.string
       "SELECT password FROM user WHERE nick=?;"
 
-  let find_user =
+  let is_already_user =
     Caqti_request.find_opt
       Caqti_type.(tup2 string string)
-      Caqti_type.unit
+      Caqti_type.int
       "SELECT EXISTS(SELECT 1 FROM user WHERE nick=? OR email=?);"
 
   let inser_new_user =
@@ -110,17 +110,22 @@ let register ~email ~nick ~password =
   if not valid then
     Error "Something is wrong"
   else
-    let unique = Db.find_opt Q.find_user (nick, email) in
+    let unique = Db.find_opt Q.is_already_user (nick, email) in
     match unique with
     | Ok unique -> (
       match unique with
-      | Some _ -> Error "nick or email already exists"
-      | None -> (
-        let res = Db.exec Q.inser_new_user (nick, password, email, ("", "")) in
-        match res with
-        | Ok res -> Ok res
-        | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
-        ) )
+      | Some nb -> (
+        match nb with
+        | 0 -> (
+          let res =
+            Db.exec Q.inser_new_user (nick, password, email, ("", ""))
+          in
+          match res with
+          | Ok res -> Ok res
+          | Error e ->
+            Error (Format.sprintf "db error: %s" (Caqti_error.show e)) )
+        | _ -> Error "nick or email already exists" )
+      | None -> Error "db error" )
     | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
 
 let list () =
