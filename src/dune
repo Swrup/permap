@@ -2,6 +2,8 @@
  (public_name permap)
  (modules app content db login permap register template user user_profile)
  (libraries
+  caqti.blocking
+  caqti-driver-sqlite3
   bos
   directories
   dream

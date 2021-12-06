@@ -6,40 +6,90 @@ type t =
   ; avatar : string
   }
 
+module Q = struct
+  let create_user_table =
+    Caqti_request.exec Caqti_type.unit
+      {|
+      CREATE TABLE IF NOT EXISTS user (
+         nick TEXT,
+         password TEXT,
+         email TEXT,
+         bio TEXT,
+         avatar BLOB
+      );
+    |}
+
+  let get_password =
+    Caqti_request.find_opt Caqti_type.string Caqti_type.string
+      "SELECT password FROM user WHERE nick=?;"
+
+  let find_user =
+    Caqti_request.find_opt
+      Caqti_type.(tup2 string string)
+      Caqti_type.unit
+      "SELECT EXISTS(SELECT 1 FROM user WHERE nick=? OR email=?);"
+
+  let inser_new_user =
+    Caqti_request.exec
+      Caqti_type.(tup4 string string string Caqti_type.(tup2 string string))
+      "INSERT INTO user VALUES (?, ?, ?, ?, ?);"
+
+  let list_nicks =
+    Caqti_request.collect Caqti_type.unit Caqti_type.string
+      "SELECT nick FROM user;"
+
+  let get_user =
+    Caqti_request.find_opt Caqti_type.string
+      Caqti_type.(tup4 string string string Caqti_type.(tup2 string string))
+      "SELECT * FROM user WHERE nick=?;"
+
+  let update_bio =
+    Caqti_request.exec
+      Caqti_type.(tup2 string string)
+      "UPDATE user SET bio=? WHERE nick=?;"
+
+  let get_bio =
+    Caqti_request.find_opt Caqti_type.string Caqti_type.string
+      "SELECT bio FROM user WHERE nick=?;"
+
+  let get_avatar =
+    Caqti_request.find_opt Caqti_type.string Caqti_type.string
+      "SELECT avatar FROM user WHERE nick=?;"
+
+  let upload_avatar =
+    Caqti_request.exec
+      Caqti_type.(tup2 string string)
+      "UPDATE user SET avatar=? WHERE nick=?;"
+end
+
+module Db =
+( val Caqti_blocking.connect (Uri.of_string (Filename.concat "sqlite3://" Db.db))
+      |> Caqti_blocking.or_fail )
+
 let () =
-  let open Sqlite3_utils in
-  let res =
-    Db.with_db (fun db ->
-        exec0 db
-          "CREATE TABLE IF NOT EXISTS user (nick TEXT, password TEXT, email \
-           TEXT, bio TEXT, avatar BLOB);" )
-  in
+  let res = Db.exec Q.create_user_table () in
   match res with
   | Ok () -> ()
   | Error e ->
     Dream.warning (fun log ->
-        log "can't create table user: %s" (Sqlite3.Rc.to_string e) )
+        log "can't create table user: %s" (Caqti_error.show e) )
 
 let login ~nick ~password request =
-  let open Sqlite3_utils in
-  let good_password =
-    Db.with_db (fun db ->
-        exec_raw_args db "SELECT password FROM user WHERE nick=?;"
-          [| Data.TEXT nick |] ~f:Cursor.to_list )
-  in
+  let good_password = Db.find_opt Q.get_password nick in
   match good_password with
-  | Ok [ [| Data.TEXT good_password |] ] ->
-    if Bcrypt.verify password (Bcrypt.hash_of_string good_password) then
-      let _ =
-        let%lwt () = Dream.invalidate_session request in
-        Dream.put_session "nick" nick request
-      in
-      Ok ()
-    else
-      Error "wrong password"
-  | Ok [] -> Error (Format.sprintf "user `%s` doesn't exist" nick)
-  | Ok _ -> Error "incoherent db answer"
-  | Error e -> Error (Format.sprintf "db error: %s" (Rc.to_string e))
+  | Ok foo -> (
+    match foo with
+    | Some good_password ->
+      if Bcrypt.verify password (Bcrypt.hash_of_string good_password) then
+        let _ =
+          let%lwt () = Dream.invalidate_session request in
+          Dream.put_session "nick" nick request
+        in
+        Ok ()
+      else
+        Error "wrong password"
+    | None -> Error (Format.sprintf "user `%s` doesn't exist" nick) )
+  | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
 
 let register ~email ~nick ~password =
   (* TODO: remove bad characters (e.g. delthas) *)
@@ -67,73 +117,44 @@ let register ~email ~nick ~password =
   if not valid then
     Error "Something is wrong"
   else
-    let open Sqlite3_utils in
-    let unique =
-      Db.with_db (fun db ->
-          exec_raw_args db
-            "SELECT EXISTS(SELECT 1 FROM user WHERE nick=? OR email=?);"
-            [| Data.TEXT nick; Data.TEXT email |]
-            ~f:Cursor.to_list )
-    in
+    let unique = Db.find_opt Q.find_user (nick, email) in
     match unique with
-    | Ok [ [| Data.INT 0L |] ] -> (
-      let res =
-        Db.with_db (fun db ->
-            exec_raw_args db "INSERT INTO user VALUES (?, ?, ?, ?, ?);"
-              [| Data.TEXT nick
-               ; Data.TEXT password
-               ; Data.TEXT email
-               ; Data.TEXT ""
-               ; Data.BLOB ""
-              |]
-              ~f:Cursor.to_list )
-      in
-      match res with
-      | Ok res -> Ok res
-      | Error e -> Error (Format.sprintf "db error: %s" (Rc.to_string e)) )
-    | Ok _ -> Error "nick or email already exists"
-    | Error e -> Error (Format.sprintf "db error: %s" (Rc.to_string e))
+    | Ok unique -> (
+      match unique with
+      | Some _ -> Error "nick or email already exists"
+      | None -> (
+        let res = Db.exec Q.inser_new_user (nick, password, email, ("", "")) in
+        match res with
+        | Ok res -> Ok res
+        | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+        ) )
+    | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
 
 let list () =
-  let open Sqlite3_utils in
-  let users =
-    Db.with_db (fun db ->
-        exec_raw_args db "SELECT nick FROM user;" [||] ~f:Cursor.to_list )
-  in
+  let users = Db.fold Q.list_nicks (fun nick acc -> nick :: acc) () [] in
   match users with
-  | Error e -> Format.sprintf "db error: %s" (Rc.to_string e)
   | Ok users ->
     Format.asprintf "<ul>%a</ul>"
       (Format.pp_print_list (fun fmt -> function
-         | [| Data.TEXT s |] ->
-           Format.fprintf fmt {|<li><a href="/user/%s">%s</a></li>|} s s
-         | _ -> failwith "error" ) )
+         | s -> Format.fprintf fmt {|<li><a href="/user/%s">%s</a></li>|} s s )
+      )
       users
+  | Error e -> Format.sprintf "db error: %s" (Caqti_error.show e)
 
 let public_profile request =
   let nick = Dream.param "user" request in
-  let open Sqlite3_utils in
-  let user =
-    Db.with_db (fun db ->
-        exec_raw_args db "SELECT * FROM user WHERE nick=?;" [| Data.TEXT nick |]
-          ~f:Cursor.to_list )
-  in
+  let user = Db.find_opt Q.get_user nick in
   match user with
-  | Ok
-      [ [| Data.TEXT nick
-         ; Data.TEXT password
-         ; Data.TEXT email
-         ; Data.TEXT bio
-         ; Data.BLOB _
-        |]
-      ] ->
-    Format.sprintf
-      {|nick = `%s`; password = `%s`; email = `%s`; bio = '%s';
+  | Ok user -> (
+    match user with
+    | Some (nick, password, email, (bio, _)) ->
+      Format.sprintf
+        {|nick = `%s`; password = `%s`; email = `%s`; bio = '%s';
     <img src="/user/%s/avatar" class="img-thumbnail" alt="Your avatar picture">
 |}
-      nick password email (Dream.html_escape bio) nick
-  | Ok _ -> "incoherent db answer"
-  | Error e -> Format.sprintf "db error: %s" (Rc.to_string e)
+        nick password email (Dream.html_escape bio) nick
+    | None -> "incoherent db answer" )
+  | Error e -> Format.sprintf "db error: %s" (Caqti_error.show e)
 
 let profile request =
   match Dream.session "nick" request with
@@ -146,45 +167,33 @@ let update_bio bio nick =
   if not valid then
     Error "Not biologic"
   else
-    let open Sqlite3_utils in
-    let res =
-      Db.with_db (fun db ->
-          exec_raw_args db "UPDATE user SET bio=? WHERE nick=?;"
-            [| Data.TEXT bio; Data.TEXT nick |]
-            ~f:Cursor.to_list )
-    in
+    let res = Db.exec Q.update_bio (bio, nick) in
     match res with
     | Ok _ -> Ok ()
-    | Error e -> Error (Format.sprintf "db error: %s" (Rc.to_string e))
+    | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
 
 let get_bio nick =
-  let open Sqlite3_utils in
-  let res =
-    Db.with_db (fun db ->
-        exec_raw_args db "SELECT bio FROM user WHERE nick=?;"
-          [| Data.TEXT nick |] ~f:Cursor.to_list )
-  in
+  let res = Db.find_opt Q.get_bio nick in
   match res with
-  | Ok [ [| Data.TEXT bio |] ] -> Ok bio
-  | Error e -> Error (Format.sprintf "db error: %s" (Rc.to_string e))
-  | Ok _ -> Error "incoherent db result"
+  | Ok bio -> (
+    match bio with
+    | Some bio -> Ok bio
+    | None -> Error "incoherent db result" )
+  | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
 
 let get_avatar nick =
-  let open Sqlite3_utils in
-  let res =
-    Db.with_db (fun db ->
-        exec_raw_args db "SELECT avatar FROM user WHERE nick=?;"
-          [| Data.TEXT nick |] ~f:Cursor.to_list )
-  in
+  let res = Db.find_opt Q.get_avatar nick in
   match res with
-  | Ok [ [| Data.BLOB avatar |] ] ->
-    if String.length avatar = 0 then
-      (* TODO default avatar *)
-      Ok None
-    else
-      Ok (Some avatar)
-  | Error e -> Error (Format.sprintf "db error: %s" (Rc.to_string e))
-  | Ok _ -> Error "incoherent db result"
+  | Ok avatar -> (
+    match avatar with
+    | Some avatar ->
+      if String.length avatar = 0 then
+        (* TODO default avatar *)
+        Ok None
+      else
+        Ok (Some avatar)
+    | None -> Error "db error:" )
+  | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
 
 let upload_avatar files nick =
   match files with
@@ -196,14 +205,8 @@ let upload_avatar files nick =
     if not valid then
       Error "Invalid image"
     else
-      let open Sqlite3_utils in
-      let res =
-        Db.with_db (fun db ->
-            exec_raw_args db "UPDATE user SET avatar=? WHERE nick=?;"
-              [| Data.BLOB content; Data.TEXT nick |]
-              ~f:Cursor.to_list )
-      in
+      let res = Db.exec Q.upload_avatar (content, nick) in
       match res with
       | Ok _ -> Ok ()
-      | Error e -> Error (Format.sprintf "db error: %s" (Rc.to_string e)) )
+      | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e)) )
   | _files -> Error "More than one file provided"
