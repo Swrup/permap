@@ -10,7 +10,28 @@ module Q = struct
   let create_user_table =
     Caqti_request.exec Caqti_type.unit
       "CREATE TABLE IF NOT EXISTS user (nick TEXT, password TEXT, email TEXT, \
-       bio TEXT, avatar BLOB);"
+       bio TEXT, avatar BLOB, PRIMARY KEY(nick));"
+
+  let create_plant_user_table =
+    Caqti_request.exec Caqti_type.unit
+      "CREATE TABLE IF NOT EXISTS plant_user (plant_id TEXT, nick TEXT, \
+       PRIMARY KEY(plant_id), FOREIGN KEY(nick) REFERENCES user(nick));"
+
+  let create_plant_image_table =
+    Caqti_request.exec Caqti_type.unit
+      "CREATE TABLE IF NOT EXISTS plant_image (id INTEGER PRIMARY KEY, \
+       plant_id TEXT, image TEXT, FOREIGN KEY(plant_id) REFERENCES \
+       plant_user(plant_id));"
+
+  let create_plant_tag_table =
+    Caqti_request.exec Caqti_type.unit
+      "CREATE TABLE IF NOT EXISTS plant_tag (plant_id TEXT, tag TEXT, FOREIGN \
+       KEY(plant_id) REFERENCES plant_user(plant_id));"
+
+  let create_plant_gps_table =
+    Caqti_request.exec Caqti_type.unit
+      "CREATE TABLE IF NOT EXISTS plant_gps (plant_id TEXT, gps TEXT, FOREIGN \
+       KEY(plant_id) REFERENCES plant_user(plant_id));"
 
   let get_password =
     Caqti_request.find_opt Caqti_type.string Caqti_type.string
@@ -53,19 +74,66 @@ module Q = struct
     Caqti_request.exec
       Caqti_type.(tup2 string string)
       "UPDATE user SET avatar=? WHERE nick=?;"
+
+  let upload_plant_id =
+    Caqti_request.exec
+      Caqti_type.(tup2 string string)
+      "INSERT INTO plant_user VALUES (?,?);"
+
+  let upload_plant_tag =
+    Caqti_request.exec
+      Caqti_type.(tup2 string string)
+      "INSERT INTO plant_tag VALUES (?,?);"
+
+  let upload_plant_gps =
+    Caqti_request.exec
+      Caqti_type.(tup2 string string)
+      "INSERT INTO plant_gps VALUES (?,?);"
+
+  let upload_plant_image =
+    Caqti_request.exec
+      Caqti_type.(tup2 string string)
+      "INSERT INTO plant_image VALUES (NULL,?,?);"
+
+  let get_user_plants =
+    Caqti_request.collect Caqti_type.string Caqti_type.string
+      "SELECT plant_id FROM plant_user WHERE nick=?;"
+
+  let count_plant_image =
+    Caqti_request.find_opt Caqti_type.string Caqti_type.int
+      "SELECT COUNT(*) FROM plant_image WHERE plant_id=?;"
+
+  let get_plant_image =
+    Caqti_request.find_opt
+      Caqti_type.(tup2 string string)
+      Caqti_type.string
+      "SELECT image FROM plant_image WHERE plant_id=? AND id=?;"
+
+  let get_tags =
+    Caqti_request.collect Caqti_type.string Caqti_type.string
+      "SELECT tag FROM plant_tag WHERE plant_id=?;"
 end
 
 module Db =
 ( val Caqti_blocking.connect (Uri.of_string (Filename.concat "sqlite3://" Db.db))
       |> Caqti_blocking.or_fail )
 
+let random_state = Random.State.make_self_init ()
+
 let () =
-  let res = Db.exec Q.create_user_table () in
-  match res with
-  | Ok () -> ()
-  | Error e ->
-    Dream.warning (fun log ->
-        log "can't create table user: %s" (Caqti_error.show e) )
+  let tables =
+    [ Q.create_user_table
+    ; Q.create_plant_user_table
+    ; Q.create_plant_image_table
+    ; Q.create_plant_tag_table
+    ; Q.create_plant_gps_table
+    ]
+  in
+  if
+    List.exists Result.is_error
+      (List.map (fun query -> Db.exec query ()) tables)
+  then
+    Dream.warning (fun log -> log "can't create table")
 
 let login ~nick ~password request =
   let good_password = Db.find_opt Q.get_password nick in
@@ -128,6 +196,30 @@ let register ~email ~nick ~password =
       | None -> Error "db error" )
     | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
 
+let plant_view plant_id =
+  let count = Db.find_opt Q.count_plant_image plant_id in
+  match count with
+  | Ok count -> (
+    match count with
+    | Some count -> (
+      let images =
+        String.concat "\n"
+          (List.map
+             (Format.sprintf
+                {|<li><img src="/plant_pic/%s/%i" class="img-thumbnail"></li>|}
+                plant_id )
+             (List.init count succ) )
+      in
+      let tags = Db.fold Q.get_tags (fun tag acc -> tag :: acc) plant_id [] in
+      match tags with
+      | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+      | Ok tags ->
+        let tags = String.concat " " tags in
+        (* TODO add link to gps/map too *)
+        Ok (images ^ tags) )
+    | None -> Error "db error" )
+  | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+
 let list () =
   let users = Db.fold Q.list_nicks (fun nick acc -> nick :: acc) () [] in
   match users with
@@ -145,12 +237,32 @@ let public_profile request =
   match user with
   | Ok user -> (
     match user with
-    | Some (nick, password, email, (bio, _)) ->
-      Format.sprintf
-        {|nick = `%s`; password = `%s`; email = `%s`; bio = '%s';
+    | Some (nick, password, email, (bio, _)) -> (
+      (* TODO show plants *)
+      let plant_id_list =
+        Db.fold Q.get_user_plants (fun plant_id acc -> plant_id :: acc) nick []
+      in
+      match plant_id_list with
+      | Error e -> Format.sprintf "db error: %s" (Caqti_error.show e)
+      | Ok plant_id_list ->
+        let plants_result = List.map plant_view plant_id_list in
+        if List.exists Result.is_error plants_result then
+          Format.sprintf "db error"
+        else
+          let plants =
+            String.concat "\n"
+              (List.map
+                 (function
+                   | Ok s -> s
+                   | Error _ -> assert false )
+                 plants_result )
+          in
+          Format.sprintf
+            {|nick = `%s`; password = `%s`; email = `%s`; bio = '%s';
     <img src="/user/%s/avatar" class="img-thumbnail" alt="Your avatar picture">
+        %s
 |}
-        nick password email (Dream.html_escape bio) nick
+            nick password email (Dream.html_escape bio) nick plants )
     | None -> "incoherent db answer" )
   | Error e -> Format.sprintf "db error: %s" (Caqti_error.show e)
 
@@ -193,6 +305,15 @@ let get_avatar nick =
     | None -> Error "db error:" )
   | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
 
+let get_plant_image plant_id nb =
+  let res = Db.find_opt Q.get_plant_image (plant_id, nb) in
+  match res with
+  | Ok content -> (
+    match content with
+    | Some content -> Ok (Some content)
+    | None -> Error "Image not found" )
+  | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+
 let upload_avatar files nick =
   match files with
   | [] -> Error "No file provided"
@@ -208,3 +329,45 @@ let upload_avatar files nick =
       | Ok _ -> Ok ()
       | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e)) )
   | _files -> Error "More than one file provided"
+
+(* TODO *)
+let is_valid_image _content = true
+
+let add_plant tags files nick =
+  match files with
+  | files -> (
+    (* TODO parse tags*)
+    (* id for plant*)
+    let ok_list = List.map (fun (_, content) -> is_valid_image content) files in
+    let valid_files = List.for_all (fun valid -> valid) ok_list in
+    if not valid_files then
+      Error "Invalid image"
+    else
+      (* add plant to db *)
+
+      (* TODO make a plant_id *)
+      let plant_id = Uuidm.to_string (Uuidm.v4_gen random_state ()) in
+      (* add to plant_id <-> user*)
+      let res_plant = Db.exec Q.upload_plant_id (plant_id, nick) in
+      match res_plant with
+      | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+      | Ok _ -> (
+        (* add to plant_id <-> tag table*)
+        (* TODO iter on tags*)
+        let res_tags = Db.exec Q.upload_plant_tag (plant_id, tags) in
+        match res_tags with
+        | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+        | Ok _ -> (
+          (* add to plant_id <-> image*)
+          let res_images =
+            List.find_opt Result.is_error
+              (List.map
+                 (fun (_, content) ->
+                   Db.exec Q.upload_plant_image (plant_id, content) )
+                 files )
+          in
+          match res_images with
+          | Some (Error e) ->
+            Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+          | Some (Ok _) -> assert false
+          | None -> Ok () ) ) )

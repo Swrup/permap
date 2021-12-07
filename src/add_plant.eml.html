@@ -1,0 +1,13 @@
+let f nick request =
+<%s  Format.sprintf "Add a plant to your Collection %s !" nick %>
+      <div class="mb-3">
+        <%s! Dream.form_tag ~action:"/add_plant" ~enctype:`Multipart_form_data request %>
+        <label for="tags" class="form-label">Tags</label>
+        <textarea name="tags" type="text" class="form-control" id="tags" aria-describedby="tagsHelp"></textarea>
+        <div id="tagsHelp" class="form-text">Describe your plant with tags</div>
+
+        <input id="files" name="files" aria-describedby="filesHelp" type="file" multiple>
+        <div id="filesHelp" class="form-text">Add a optional picture for your plant</div>
+      <button type="submit" class="btn btn-primary">Add Plant</button>
+      </div>
+    </form>

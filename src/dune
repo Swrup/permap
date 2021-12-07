@@ -1,7 +1,18 @@
 (executable
  (public_name permap)
- (modules app content db login permap register template user user_profile)
+ (modules
+  app
+  content
+  db
+  login
+  permap
+  register
+  template
+  user
+  user_profile
+  add_plant)
  (libraries
+  uuidm
   caqti.blocking
   caqti-driver-sqlite3
   bos
@@ -40,6 +51,12 @@
 (rule
  (targets register.ml)
  (deps register.eml.html)
+ (action
+  (run dream_eml %{deps} --workspace %{workspace_root})))
+
+(rule
+ (targets add_plant.ml)
+ (deps add_plant.eml.html)
  (action
   (run dream_eml %{deps} --workspace %{workspace_root})))
 

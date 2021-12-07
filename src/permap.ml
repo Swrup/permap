@@ -131,7 +131,50 @@ let avatar_image request =
     | Some avatar -> Dream.respond ~headers:[ ("Content-Type", "image") ] avatar
     )
 
+let plant_image request =
+  let plant_id = Dream.param "plant_id" request in
+  let nb = Dream.param "nb" request in
+  let image = User.get_plant_image plant_id nb in
+  match image with
+  | Ok (Some image) ->
+    Dream.respond ~headers:[ ("Content-Type", "image") ] image
+  | Ok None
+  | Error _ ->
+    Dream.empty `Not_Found
+
 let map request = page "map" request
+
+let add_plant_get request =
+  match Dream.session "nick" request with
+  | None -> render_unsafe "Not logged in" request
+  | Some nick -> render_unsafe (Add_plant.f nick request) request
+
+let add_plant_post request =
+  match Dream.session "nick" request with
+  | None -> render_unsafe "Not logged in" request
+  | Some nick -> (
+    match%lwt Dream.multipart request with
+    (* TODO match pas bien la form :s *)
+    | `Ok [ ("files", files); ("tags", tags) ]
+    | `Ok (("files", files) :: ("tags", tags) :: _ :: _) -> (
+      match tags with
+      | [] -> render_unsafe "Field tag is empty" request
+      | [ (_, tags) ] ->
+        let res =
+          match User.add_plant tags files nick with
+          | Ok () -> "Your plant was uploaded!"
+          | Error e -> e
+        in
+        render_unsafe res request
+      | _tags -> Dream.empty `Bad_Request )
+    | `Ok _ -> Dream.empty `Bad_Request
+    | `Expired _
+    | `Many_tokens _
+    | `Missing_token _
+    | `Invalid_token _
+    | `Wrong_session _
+    | `Wrong_content_type ->
+      Dream.empty `Bad_Request )
 
 let () =
   Dream.run @@ Dream.logger @@ Dream.memory_sessions
@@ -149,5 +192,8 @@ let () =
        ; Dream.get "/logout" logout
        ; Dream.get "/profile" profile_get
        ; Dream.post "/profile" profile_post
+       ; Dream.get "/add_plant" add_plant_get
+       ; Dream.post "/add_plant" add_plant_post
+       ; Dream.get "/plant_pic/:plant_id/:nb" plant_image
        ]
   @@ Dream.not_found
