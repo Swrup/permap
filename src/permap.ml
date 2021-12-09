@@ -154,7 +154,6 @@ let add_plant_post request =
   | None -> render_unsafe "Not logged in" request
   | Some nick -> (
     match%lwt Dream.multipart request with
-    (* TODO match pas bien la form :s *)
     | `Ok [ ("files", files); ("tags", tags) ]
     | `Ok (("files", files) :: ("tags", tags) :: _ :: _) -> (
       match tags with

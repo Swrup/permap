@@ -1,7 +1,7 @@
 type t =
   { nick : string
   ; password : string
-  ; email : string (* TODO: make email optional ? *)
+  ; email : string
   ; bio : string
   ; avatar : string
   }
@@ -290,7 +290,6 @@ let get_avatar nick =
     match avatar with
     | Some avatar ->
       if String.length avatar = 0 then
-        (* TODO default avatar *)
         Ok None
       else
         Ok (Some avatar)
@@ -310,8 +309,6 @@ let upload_avatar files nick =
   match files with
   | [] -> Error "No file provided"
   | [ (_, content) ] -> (
-    (* TODO validate image data with konan etc*)
-    (* TODO file_name in db??*)
     let valid = true in
     if not valid then
       Error "Invalid image"
@@ -322,13 +319,13 @@ let upload_avatar files nick =
       | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e)) )
   | _files -> Error "More than one file provided"
 
-(* TODO *)
+(* TODO do image validation: length and MIME types with conan*)
+(* TODO do the same for text input: check length, forbidden chars and have a forbidden words filter*)
 let is_valid_image _content = true
 
 let add_plant tags files nick =
   match files with
   | files -> (
-    (* TODO parse tags*)
     let tags_len = String.length tags in
     if tags_len > 1000 then
       Error "tags too long"
@@ -343,8 +340,6 @@ let add_plant tags files nick =
         Error "Invalid image"
       else
         (* add plant to db *)
-
-        (* TODO make a plant_id *)
         let plant_id = Uuidm.to_string (Uuidm.v4_gen random_state ()) in
         (* add to plant_id <-> user*)
         let res_plant = Db.exec Q.upload_plant_id (plant_id, nick) in
@@ -352,7 +347,6 @@ let add_plant tags files nick =
         | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
         | Ok _ -> (
           (* add to plant_id <-> tag table*)
-          (* TODO iter on tag_list*)
           let res_tags =
             List.map
               (fun tag -> Db.exec Q.upload_plant_tag (plant_id, tag))
