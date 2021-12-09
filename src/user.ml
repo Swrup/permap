@@ -329,37 +329,48 @@ let add_plant tags files nick =
   match files with
   | files -> (
     (* TODO parse tags*)
-    (* id for plant*)
-    let ok_list = List.map (fun (_, content) -> is_valid_image content) files in
-    let valid_files = List.for_all (fun valid -> valid) ok_list in
-    if not valid_files then
-      Error "Invalid image"
+    let tags_len = String.length tags in
+    if tags_len > 1000 then
+      Error "tags too long"
     else
-      (* add plant to db *)
+      let tag_list = Str.split (Str.regexp " +") tags in
+      (* id for plant*)
+      let ok_list =
+        List.map (fun (_, content) -> is_valid_image content) files
+      in
+      let valid_files = List.for_all (fun valid -> valid) ok_list in
+      if not valid_files then
+        Error "Invalid image"
+      else
+        (* add plant to db *)
 
-      (* TODO make a plant_id *)
-      let plant_id = Uuidm.to_string (Uuidm.v4_gen random_state ()) in
-      (* add to plant_id <-> user*)
-      let res_plant = Db.exec Q.upload_plant_id (plant_id, nick) in
-      match res_plant with
-      | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
-      | Ok _ -> (
-        (* add to plant_id <-> tag table*)
-        (* TODO iter on tags*)
-        let res_tags = Db.exec Q.upload_plant_tag (plant_id, tags) in
-        match res_tags with
+        (* TODO make a plant_id *)
+        let plant_id = Uuidm.to_string (Uuidm.v4_gen random_state ()) in
+        (* add to plant_id <-> user*)
+        let res_plant = Db.exec Q.upload_plant_id (plant_id, nick) in
+        match res_plant with
         | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
         | Ok _ -> (
-          (* add to plant_id <-> image*)
-          let res_images =
-            List.find_opt Result.is_error
-              (List.mapi
-                 (fun nb (_, content) ->
-                   Db.exec Q.upload_plant_image (plant_id, content, nb) )
-                 files )
+          (* add to plant_id <-> tag table*)
+          (* TODO iter on tag_list*)
+          let res_tags =
+            List.map
+              (fun tag -> Db.exec Q.upload_plant_tag (plant_id, tag))
+              tag_list
           in
-          match res_images with
-          | Some (Error e) ->
-            Error (Format.sprintf "db error: %s" (Caqti_error.show e))
-          | Some (Ok _) -> assert false
-          | None -> Ok () ) ) )
+          if List.exists Result.is_error res_tags then
+            Error (Format.sprintf "db error")
+          else
+            (* add to plant_id <-> image*)
+            let res_images =
+              List.find_opt Result.is_error
+                (List.mapi
+                   (fun nb (_, content) ->
+                     Db.exec Q.upload_plant_image (plant_id, content, nb) )
+                   files )
+            in
+            match res_images with
+            | Some (Error e) ->
+              Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+            | Some (Ok _) -> assert false
+            | None -> Ok () ) )
