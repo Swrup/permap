@@ -154,17 +154,22 @@ let add_plant_post request =
   | None -> render_unsafe "Not logged in" request
   | Some nick -> (
     match%lwt Dream.multipart request with
-    | `Ok [ ("files", files); ("tags", tags) ]
-    | `Ok (("files", files) :: ("tags", tags) :: _ :: _) -> (
+    | `Ok [ ("files", files); ("lat_lng", lat_lng); ("tags", tags) ]
+    | `Ok (("files", files) :: ("lat_lng", lat_lng) :: ("tags", tags) :: _ :: _)
+      -> (
       match tags with
       | [] -> render_unsafe "Field tag is empty" request
-      | [ (_, tags) ] ->
-        let res =
-          match User.add_plant tags files nick with
-          | Ok () -> "Your plant was uploaded!"
-          | Error e -> e
-        in
-        render_unsafe res request
+      | [ (_, tags) ] -> (
+        match lat_lng with
+        | [] -> render_unsafe "Field tag is empty" request
+        | [ (_, lat_lng) ] ->
+          let res =
+            match User.add_plant lat_lng tags files nick with
+            | Ok () -> "Your plant was uploaded!"
+            | Error e -> e
+          in
+          render_unsafe res request
+        | _lat_lng -> Dream.empty `Bad_Request )
       | _tags -> Dream.empty `Bad_Request )
     | `Ok _ -> Dream.empty `Bad_Request
     | `Expired _

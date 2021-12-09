@@ -1,3 +1,4 @@
+(* TODO only run this on /add_plant and /map *)
 let log = Format.printf
 
 (* get the leaflet object *)
@@ -5,6 +6,9 @@ let leaflet =
   match Jv.(find global "L") with
   | Some l -> l
   | None -> failwith "can't load leaflet"
+
+(* get popup object *)
+let popup = Jv.call leaflet "popup" [||]
 
 (* create a map *)
 let map =
@@ -43,12 +47,23 @@ let () =
   let _map : Jv.t = Jv.call tile_layer "addTo" [| map |] in
   ()
 
-(* TODO :-)
-   (* binding callbacks@ *)
-     let () =
-       Format.eprintf "binding callbacks@.";
+let on_click e =
+  log "on_click@.";
 
-       Ev.listen Leaflet.Map.click (fun e ->
-           Console.log [ e |> Ev.as_type |> Leaflet.Ev.MouseEvent.latlng ] )
-       @@ Leaflet.Map.as_target map
-*)
+  let lat_lng = Jv.get e "latlng" in
+  ignore @@ Jv.call popup "setLatLng" [| lat_lng |];
+  ignore @@ Jv.call popup "setContent" [| Jv.of_string "YOU CLICKED HERE" |];
+  ignore @@ Jv.call popup "openOn" [| map |];
+
+  (*TODO use Brr to insert lat_lng in the form *)
+  let open Brr in
+  let lat_lng_input = El.input ~at:At.[ id (Jstr.v "lat_lng") ] () in
+  ignore
+  @@ El.set_at (Jstr.of_string "value")
+       (Some (Jstr.of_string "FUCK"))
+       lat_lng_input;
+  ()
+
+let () =
+  (*add on_click callback to map*)
+  ignore @@ Jv.call map "on" [| Jv.of_string "click"; Jv.repr on_click |]

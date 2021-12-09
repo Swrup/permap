@@ -111,6 +111,10 @@ module Q = struct
   let get_tags =
     Caqti_request.collect Caqti_type.string Caqti_type.string
       "SELECT tag FROM plant_tag WHERE plant_id=?;"
+
+  let get_plant_gps =
+    Caqti_request.find_opt Caqti_type.string Caqti_type.string
+      "SELECT gps FROM plant_gps WHERE plant_id=?;"
 end
 
 module Db =
@@ -201,6 +205,12 @@ let view_plant plant_id =
   | Ok count -> (
     match count with
     | Some count -> (
+      let gps =
+        match Db.find_opt Q.get_plant_gps plant_id with
+        | Ok (Some gps) -> gps
+        | Ok None -> ""
+        | Error e -> Format.sprintf "db error: %s" (Caqti_error.show e)
+      in
       let images =
         String.concat "\n"
           (List.map
@@ -215,7 +225,7 @@ let view_plant plant_id =
       | Ok tags ->
         let tags = String.concat " " tags in
         (* TODO add link to gps/map too *)
-        images ^ tags )
+        images ^ tags ^ gps )
     | None -> "db error" )
   | Error e -> Format.sprintf "db error: %s" (Caqti_error.show e)
 
@@ -323,27 +333,28 @@ let upload_avatar files nick =
 (* TODO do the same for text input: check length, forbidden chars and have a forbidden words filter*)
 let is_valid_image _content = true
 
-let add_plant tags files nick =
-  match files with
-  | files -> (
-    let tags_len = String.length tags in
-    if tags_len > 1000 then
-      Error "tags too long"
+let add_plant gps tags files nick =
+  let tags_len = String.length tags in
+  if tags_len > 1000 then
+    Error "tags too long"
+  else
+    let tag_list = Str.split (Str.regexp " +") tags in
+    (* id for plant*)
+    let ok_list = List.map (fun (_, content) -> is_valid_image content) files in
+    let valid_files = List.for_all (fun valid -> valid) ok_list in
+    if not valid_files then
+      Error "Invalid image"
     else
-      let tag_list = Str.split (Str.regexp " +") tags in
-      (* id for plant*)
-      let ok_list =
-        List.map (fun (_, content) -> is_valid_image content) files
-      in
-      let valid_files = List.for_all (fun valid -> valid) ok_list in
-      if not valid_files then
-        Error "Invalid image"
-      else
-        (* add plant to db *)
-        let plant_id = Uuidm.to_string (Uuidm.v4_gen random_state ()) in
-        (* add to plant_id <-> user*)
-        let res_plant = Db.exec Q.upload_plant_id (plant_id, nick) in
-        match res_plant with
+      (* add plant to db *)
+      let plant_id = Uuidm.to_string (Uuidm.v4_gen random_state ()) in
+      (* add to plant_id <-> user*)
+      let res_plant = Db.exec Q.upload_plant_id (plant_id, nick) in
+      match res_plant with
+      | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+      | Ok _ -> (
+        (* add to plant_id <-> gps table*)
+        let res_gps = Db.exec Q.upload_plant_gps (plant_id, gps) in
+        match res_gps with
         | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
         | Ok _ -> (
           (* add to plant_id <-> tag table*)
