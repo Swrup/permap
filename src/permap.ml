@@ -133,7 +133,7 @@ let avatar_image request =
 
 let plant_image request =
   let plant_id = Dream.param "plant_id" request in
-  let nb = Dream.param "nb" request in
+  let nb = int_of_string (Dream.param "nb" request) in
   let image = User.get_plant_image plant_id nb in
   match image with
   | Ok (Some image) ->

@@ -19,9 +19,8 @@ module Q = struct
 
   let create_plant_image_table =
     Caqti_request.exec Caqti_type.unit
-      "CREATE TABLE IF NOT EXISTS plant_image (id INTEGER PRIMARY KEY, \
-       plant_id TEXT, image TEXT, FOREIGN KEY(plant_id) REFERENCES \
-       plant_user(plant_id));"
+      "CREATE TABLE IF NOT EXISTS plant_image ( plant_id TEXT, image TEXT,id \
+       INTEGER, FOREIGN KEY(plant_id) REFERENCES plant_user(plant_id));"
 
   let create_plant_tag_table =
     Caqti_request.exec Caqti_type.unit
@@ -92,8 +91,8 @@ module Q = struct
 
   let upload_plant_image =
     Caqti_request.exec
-      Caqti_type.(tup2 string string)
-      "INSERT INTO plant_image VALUES (NULL,?,?);"
+      Caqti_type.(tup3 string string int)
+      "INSERT INTO plant_image VALUES (?,?,?);"
 
   let get_user_plants =
     Caqti_request.collect Caqti_type.string Caqti_type.string
@@ -105,7 +104,7 @@ module Q = struct
 
   let get_plant_image =
     Caqti_request.find_opt
-      Caqti_type.(tup2 string string)
+      Caqti_type.(tup2 string int)
       Caqti_type.string
       "SELECT image FROM plant_image WHERE plant_id=? AND id=?;"
 
@@ -196,7 +195,7 @@ let register ~email ~nick ~password =
       | None -> Error "db error" )
     | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
 
-let plant_view plant_id =
+let view_plant plant_id =
   let count = Db.find_opt Q.count_plant_image plant_id in
   match count with
   | Ok count -> (
@@ -208,17 +207,27 @@ let plant_view plant_id =
              (Format.sprintf
                 {|<li><img src="/plant_pic/%s/%i" class="img-thumbnail"></li>|}
                 plant_id )
-             (List.init count succ) )
+             (List.init count (fun i -> i)) )
       in
       let tags = Db.fold Q.get_tags (fun tag acc -> tag :: acc) plant_id [] in
       match tags with
-      | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+      | Error e -> Format.sprintf "db error: %s" (Caqti_error.show e)
       | Ok tags ->
         let tags = String.concat " " tags in
         (* TODO add link to gps/map too *)
-        Ok (images ^ tags) )
-    | None -> Error "db error" )
-  | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+        images ^ tags )
+    | None -> "db error" )
+  | Error e -> Format.sprintf "db error: %s" (Caqti_error.show e)
+
+let view_user_plant_list nick =
+  let plant_id_list =
+    Db.fold Q.get_user_plants (fun plant_id acc -> plant_id :: acc) nick []
+  in
+  match plant_id_list with
+  | Error e -> Format.sprintf "db error: %s" (Caqti_error.show e)
+  | Ok plant_id_list ->
+    let plants = List.map view_plant plant_id_list in
+    String.concat "\n" plants
 
 let list () =
   let users = Db.fold Q.list_nicks (fun nick acc -> nick :: acc) () [] in
@@ -237,32 +246,15 @@ let public_profile request =
   match user with
   | Ok user -> (
     match user with
-    | Some (nick, password, email, (bio, _)) -> (
-      (* TODO show plants *)
-      let plant_id_list =
-        Db.fold Q.get_user_plants (fun plant_id acc -> plant_id :: acc) nick []
+    | Some (nick, password, email, (bio, _)) ->
+      let plants = view_user_plant_list nick in
+      let user_info =
+        Format.sprintf
+          {|nick = `%s`; password = `%s`; email = `%s`; bio = '%s';
+    <img src="/user/%s/avatar" class="img-thumbnail" alt="Your avatar picture">|}
+          nick password email (Dream.html_escape bio) nick
       in
-      match plant_id_list with
-      | Error e -> Format.sprintf "db error: %s" (Caqti_error.show e)
-      | Ok plant_id_list ->
-        let plants_result = List.map plant_view plant_id_list in
-        if List.exists Result.is_error plants_result then
-          Format.sprintf "db error"
-        else
-          let plants =
-            String.concat "\n"
-              (List.map
-                 (function
-                   | Ok s -> s
-                   | Error _ -> assert false )
-                 plants_result )
-          in
-          Format.sprintf
-            {|nick = `%s`; password = `%s`; email = `%s`; bio = '%s';
-    <img src="/user/%s/avatar" class="img-thumbnail" alt="Your avatar picture">
-        %s
-|}
-            nick password email (Dream.html_escape bio) nick plants )
+      user_info ^ plants
     | None -> "incoherent db answer" )
   | Error e -> Format.sprintf "db error: %s" (Caqti_error.show e)
 
@@ -361,9 +353,9 @@ let add_plant tags files nick =
           (* add to plant_id <-> image*)
           let res_images =
             List.find_opt Result.is_error
-              (List.map
-                 (fun (_, content) ->
-                   Db.exec Q.upload_plant_image (plant_id, content) )
+              (List.mapi
+                 (fun nb (_, content) ->
+                   Db.exec Q.upload_plant_image (plant_id, content, nb) )
                  files )
           in
           match res_images with
