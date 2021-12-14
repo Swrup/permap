@@ -50,19 +50,18 @@ let () =
 let on_click e =
   log "on_click@.";
 
+  (*TODO use Jv.find *)
   let lat_lng = Jv.get e "latlng" in
   ignore @@ Jv.call popup "setLatLng" [| lat_lng |];
-  ignore @@ Jv.call popup "setContent" [| Jv.of_string "YOU CLICKED HERE" |];
+  ignore @@ Jv.call popup "setContent" [| Jv.of_string "euujjj" |];
   ignore @@ Jv.call popup "openOn" [| map |];
 
-  (*TODO use Brr to insert lat_lng in the form *)
-  let open Brr in
-  let lat_lng_input = El.input ~at:At.[ id (Jstr.v "lat_lng") ] () in
-  ignore
-  @@ El.set_at (Jstr.of_string "value")
-       (Some (Jstr.of_string "FUCK"))
-       lat_lng_input;
-  ()
+  let lat = Jv.get lat_lng "lat" in
+  let lng = Jv.get lat_lng "lng" in
+  let lat_input = Jv.get Jv.global "lat_input" in
+  let lng_input = Jv.get Jv.global "lng_input" in
+  ignore @@ Jv.call lat_input "setAttribute" [| Jv.of_string "value"; lat |];
+  ignore @@ Jv.call lng_input "setAttribute" [| Jv.of_string "value"; lng |]
 
 let () =
   (*add on_click callback to map*)

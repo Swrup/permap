@@ -29,8 +29,8 @@ module Q = struct
 
   let create_plant_gps_table =
     Caqti_request.exec Caqti_type.unit
-      "CREATE TABLE IF NOT EXISTS plant_gps (plant_id TEXT, gps TEXT, FOREIGN \
-       KEY(plant_id) REFERENCES plant_user(plant_id));"
+      "CREATE TABLE IF NOT EXISTS plant_gps (plant_id TEXT, lat TEXT,lng TEXT, \
+       FOREIGN KEY(plant_id) REFERENCES plant_user(plant_id));"
 
   let get_password =
     Caqti_request.find_opt Caqti_type.string Caqti_type.string
@@ -86,8 +86,8 @@ module Q = struct
 
   let upload_plant_gps =
     Caqti_request.exec
-      Caqti_type.(tup2 string string)
-      "INSERT INTO plant_gps VALUES (?,?);"
+      Caqti_type.(tup3 string string string)
+      "INSERT INTO plant_gps VALUES (?,?,?);"
 
   let upload_plant_image =
     Caqti_request.exec
@@ -113,8 +113,9 @@ module Q = struct
       "SELECT tag FROM plant_tag WHERE plant_id=?;"
 
   let get_plant_gps =
-    Caqti_request.find_opt Caqti_type.string Caqti_type.string
-      "SELECT gps FROM plant_gps WHERE plant_id=?;"
+    Caqti_request.find_opt Caqti_type.string
+      Caqti_type.(tup2 string string)
+      "SELECT lat, lng FROM plant_gps WHERE plant_id=?;"
 end
 
 module Db =
@@ -207,7 +208,7 @@ let view_plant plant_id =
     | Some count -> (
       let gps =
         match Db.find_opt Q.get_plant_gps plant_id with
-        | Ok (Some gps) -> gps
+        | Ok (Some (lat, lng)) -> lat ^ " " ^ lng
         | Ok None -> ""
         | Error e -> Format.sprintf "db error: %s" (Caqti_error.show e)
       in
@@ -333,7 +334,7 @@ let upload_avatar files nick =
 (* TODO do the same for text input: check length, forbidden chars and have a forbidden words filter*)
 let is_valid_image _content = true
 
-let add_plant gps tags files nick =
+let add_plant (lat, lng) tags files nick =
   let tags_len = String.length tags in
   if tags_len > 1000 then
     Error "tags too long"
@@ -353,7 +354,8 @@ let add_plant gps tags files nick =
       | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
       | Ok _ -> (
         (* add to plant_id <-> gps table*)
-        let res_gps = Db.exec Q.upload_plant_gps (plant_id, gps) in
+        (*TODO check if valid latlng *)
+        let res_gps = Db.exec Q.upload_plant_gps (plant_id, lat, lng) in
         match res_gps with
         | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
         | Ok _ -> (
