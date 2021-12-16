@@ -281,8 +281,9 @@ let marker_to_geojson marker =
 } 
 |}
       (*TODO escape in content ?? *)
-      (Float.to_string lat)
-      (Float.to_string lng) (String.escaped content)
+      (* geojson use lng lat, and not lat lng*)
+      (Float.to_string lng)
+      (Float.to_string lat) (String.escaped content)
 
 let view_user_plant_list nick =
   let plant_id_list =
