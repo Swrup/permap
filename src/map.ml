@@ -56,12 +56,48 @@ let on_click e =
   ignore @@ Jv.call popup "setContent" [| Jv.of_string "euujjj" |];
   ignore @@ Jv.call popup "openOn" [| map |];
 
+  (* TODO only on /add_plant *)
   let lat = Jv.get lat_lng "lat" in
   let lng = Jv.get lat_lng "lng" in
   let lat_input = Jv.get Jv.global "lat_input" in
   let lng_input = Jv.get Jv.global "lng_input" in
   ignore @@ Jv.call lat_input "setAttribute" [| Jv.of_string "value"; lat |];
   ignore @@ Jv.call lng_input "setAttribute" [| Jv.of_string "value"; lng |]
+
+(* let add_marker lat lng content =
+   log "add_marker@.";
+
+   let marker =
+     Jv.call leaflet "marker" [| Jv.of_array Jv.of_float [| lat; lng |] |]
+   in
+   ignore @@ Jv.call marker "bindPopup" [| Jv.of_string content |];
+   ignore @@ Jv.call marker "addTo" [| map |]
+*)
+
+let handle_geojson geojson =
+  log "handle_geojson@.";
+  log "feed geojson to leaflet@.";
+  let layer = Jv.call leaflet "geoJSON" [| geojson |] in
+  ignore @@ Jv.call layer "addTo" [| map |];
+  (* TODO this doesnt work :^) *)
+  ()
+
+let handle_response response =
+  log "handle_response@.";
+  let geo_json_list_futur = Jv.call response "json" [||] in
+  ignore @@ Jv.call geo_json_list_futur "then" [| Jv.repr handle_geojson |];
+  ()
+
+let () =
+  (* TODO only on /map *)
+  (* TODO add marker for plants on the map *)
+  (* TODO GET /markers -> geojson *)
+  (* TODO make popup *)
+  log "fetch geojson@.";
+  let window = Jv.get Jv.global "window" in
+  let fetchfutur = Jv.call window "fetch" [| Jv.of_string "/markers" |] in
+  ignore @@ Jv.call fetchfutur "then" [| Jv.repr handle_response |];
+  ()
 
 let () =
   (*add on_click callback to map*)

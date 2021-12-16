@@ -170,13 +170,17 @@ let add_plant_post request =
         match (lat, lng) with
         | [], _ -> render_unsafe "Field tag is empty" request
         | _, [] -> render_unsafe "Field tag is empty" request
-        | [ (_, lat) ], [ (_, lng) ] ->
-          let res =
-            match User.add_plant (lat, lng) tags files nick with
-            | Ok () -> "Your plant was uploaded!"
-            | Error e -> e
-          in
-          render_unsafe res request
+        | [ (_, lat) ], [ (_, lng) ] -> (
+          match (Float.of_string_opt lat, Float.of_string_opt lng) with
+          | None, _ -> render_unsafe "Invalide coordinate" request
+          | _, None -> render_unsafe "Invalide coordinate" request
+          | Some lat, Some lng ->
+            let res =
+              match User.add_plant (lat, lng) tags files nick with
+              | Ok () -> "Your plant was uploaded!"
+              | Error e -> e
+            in
+            render_unsafe res request )
         | _lat_lng -> Dream.empty `Bad_Request )
       | _tags -> Dream.empty `Bad_Request )
     | `Ok _ -> Dream.empty `Bad_Request
@@ -187,6 +191,18 @@ let add_plant_post request =
     | `Wrong_session _
     | `Wrong_content_type ->
       Dream.empty `Bad_Request )
+
+let markers request =
+  let marker_list = User.marker_list () in
+  match marker_list with
+  | Ok marker_list ->
+    let json =
+      {| [ |}
+      ^ String.concat "," (List.map User.marker_to_geojson marker_list)
+      ^ "]"
+    in
+    Dream.respond ~headers:[ ("Content-Type", "application/json") ] json
+  | Error e -> render_unsafe e request
 
 let () =
   Dream.run @@ Dream.logger @@ Dream.memory_sessions
@@ -207,5 +223,6 @@ let () =
        ; Dream.get "/add_plant" add_plant_get
        ; Dream.post "/add_plant" add_plant_post
        ; Dream.get "/plant_pic/:plant_id/:nb" plant_image
+       ; Dream.get "/markers" markers
        ]
   @@ Dream.not_found

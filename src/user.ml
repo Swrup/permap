@@ -29,8 +29,8 @@ module Q = struct
 
   let create_plant_gps_table =
     Caqti_request.exec Caqti_type.unit
-      "CREATE TABLE IF NOT EXISTS plant_gps (plant_id TEXT, lat TEXT,lng TEXT, \
-       FOREIGN KEY(plant_id) REFERENCES plant_user(plant_id));"
+      "CREATE TABLE IF NOT EXISTS plant_gps (plant_id TEXT, lat FLOAT,lng \
+       FLOAT, FOREIGN KEY(plant_id) REFERENCES plant_user(plant_id));"
 
   let get_password =
     Caqti_request.find_opt Caqti_type.string Caqti_type.string
@@ -86,7 +86,7 @@ module Q = struct
 
   let upload_plant_gps =
     Caqti_request.exec
-      Caqti_type.(tup3 string string string)
+      Caqti_type.(tup3 string float float)
       "INSERT INTO plant_gps VALUES (?,?,?);"
 
   let upload_plant_image =
@@ -97,6 +97,10 @@ module Q = struct
   let get_user_plants =
     Caqti_request.collect Caqti_type.string Caqti_type.string
       "SELECT plant_id FROM plant_user WHERE nick=?;"
+
+  let list_plant_ids =
+    Caqti_request.collect Caqti_type.unit Caqti_type.string
+      "SELECT plant_id FROM plant_user;"
 
   let count_plant_image =
     Caqti_request.find_opt Caqti_type.string Caqti_type.int
@@ -114,7 +118,7 @@ module Q = struct
 
   let get_plant_gps =
     Caqti_request.find_opt Caqti_type.string
-      Caqti_type.(tup2 string string)
+      Caqti_type.(tup2 float float)
       "SELECT lat, lng FROM plant_gps WHERE plant_id=?;"
 end
 
@@ -208,7 +212,8 @@ let view_plant plant_id =
     | Some count -> (
       let gps =
         match Db.find_opt Q.get_plant_gps plant_id with
-        | Ok (Some (lat, lng)) -> lat ^ " " ^ lng
+        | Ok (Some (lat, lng)) ->
+          Float.to_string lat ^ " " ^ Float.to_string lng
         | Ok None -> ""
         | Error e -> Format.sprintf "db error: %s" (Caqti_error.show e)
       in
@@ -229,6 +234,55 @@ let view_plant plant_id =
         images ^ tags ^ gps )
     | None -> "db error" )
   | Error e -> Format.sprintf "db error: %s" (Caqti_error.show e)
+
+let marker_list () =
+  let plant_id_list =
+    Db.fold Q.list_plant_ids (fun plant_id acc -> plant_id :: acc) () []
+  in
+  match plant_id_list with
+  | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+  | Ok plant_id_list ->
+    let markers_res =
+      List.map
+        (fun plant_id ->
+          match Db.find_opt Q.get_plant_gps plant_id with
+          | Ok (Some (lat, lng)) ->
+            let content = view_plant plant_id in
+            Ok (lat, lng, content)
+          | Ok None -> Error "latlng not found"
+          | Error e ->
+            Error (Format.sprintf "db error: %s" (Caqti_error.show e)) )
+        plant_id_list
+    in
+    let markers =
+      List.map
+        (fun res ->
+          match res with
+          | Ok res -> res
+          | Error _ -> assert false )
+        (List.filter Result.is_ok markers_res)
+    in
+    Ok markers
+
+let marker_to_geojson marker =
+  match marker with
+  | lat, lng, content ->
+    Format.sprintf
+      {|
+{
+  "type": "Feature",
+  "geometry": {
+    "type": "Point",
+    "coordinates": [%s,%s]
+  },
+  "properties": {
+    "content": "%s"
+  }
+} 
+|}
+      (*TODO escape in content ?? *)
+      (Float.to_string lat)
+      (Float.to_string lng) (String.escaped content)
 
 let view_user_plant_list nick =
   let plant_id_list =
