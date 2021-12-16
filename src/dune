@@ -75,13 +75,3 @@
   (with-stdout-to
    %{null}
    (run ocaml-crunch -m plain content -o %{target}))))
-
-(install
- (section share)
- (files
-  ./content/assets/css/leaflet.css
-  (./content/assets/img/layers-2x.png as images/layers-2x.png)
-  (./content/assets/img/layers.png as images/layers.png)
-  (./content/assets/img/marker-icon-2x.png as images/marker-icon-2x.png)
-  (./content/assets/img/marker-icon.png as images/marker-icon.png)
-  (./content/assets/img/marker-shadow.png as images/marker-shadow.png)))
