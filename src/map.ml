@@ -1,4 +1,5 @@
 (* TODO only run this on /add_plant and /map *)
+(*TODO use Jv.find everywhere (do we care?)*)
 let log = Format.printf
 
 (* get the leaflet object *)
@@ -50,7 +51,6 @@ let () =
 let on_click e =
   log "on_click@.";
 
-  (*TODO use Jv.find *)
   let lat_lng = Jv.get e "latlng" in
   ignore @@ Jv.call popup "setLatLng" [| lat_lng |];
   ignore @@ Jv.call popup "setContent" [| Jv.of_string "euujjj" |];
@@ -64,40 +64,37 @@ let on_click e =
   ignore @@ Jv.call lat_input "setAttribute" [| Jv.of_string "value"; lat |];
   ignore @@ Jv.call lng_input "setAttribute" [| Jv.of_string "value"; lng |]
 
-(* let add_marker lat lng content =
-   log "add_marker@.";
+module Marker = struct
+  let on_each_feature feature layer =
+    log "on_each_feature@.";
+    let feature_properties = Jv.get feature "properties" in
+    let feature_properties_content = Jv.get feature_properties "content" in
+    ignore @@ Jv.call layer "bindPopup" [| feature_properties_content |];
+    ()
 
-   let marker =
-     Jv.call leaflet "marker" [| Jv.of_array Jv.of_float [| lat; lng |] |]
-   in
-   ignore @@ Jv.call marker "bindPopup" [| Jv.of_string content |];
-   ignore @@ Jv.call marker "addTo" [| map |]
-*)
+  let handle_geojson geojson =
+    log "handle_geojson@.";
+    log "feed geojson to leaflet@.";
+    (* TODO add onEachFeature *)
+    let dict = Jv.obj [| ("onEachFeature", Jv.repr on_each_feature) |] in
+    let layer = Jv.call leaflet "geoJSON" [| geojson; dict |] in
+    ignore @@ Jv.call layer "addTo" [| map |];
+    ()
 
-let handle_geojson geojson =
-  log "handle_geojson@.";
-  log "feed geojson to leaflet@.";
-  let layer = Jv.call leaflet "geoJSON" [| geojson |] in
-  ignore @@ Jv.call layer "addTo" [| map |];
-  (* TODO this doesnt work :^) *)
-  ()
+  let handle_response response =
+    log "handle_response@.";
+    let geo_json_list_futur = Jv.call response "json" [||] in
+    ignore @@ Jv.call geo_json_list_futur "then" [| Jv.repr handle_geojson |];
+    ()
 
-let handle_response response =
-  log "handle_response@.";
-  let geo_json_list_futur = Jv.call response "json" [||] in
-  ignore @@ Jv.call geo_json_list_futur "then" [| Jv.repr handle_geojson |];
-  ()
-
-let () =
-  (* TODO only on /map *)
-  (* TODO add marker for plants on the map *)
-  (* TODO GET /markers -> geojson *)
-  (* TODO make popup *)
-  log "fetch geojson@.";
-  let window = Jv.get Jv.global "window" in
-  let fetchfutur = Jv.call window "fetch" [| Jv.of_string "/markers" |] in
-  ignore @@ Jv.call fetchfutur "then" [| Jv.repr handle_response |];
-  ()
+  let () =
+    (* TODO only on /map *)
+    log "fetch geojson@.";
+    let window = Jv.get Jv.global "window" in
+    let fetchfutur = Jv.call window "fetch" [| Jv.of_string "/markers" |] in
+    ignore @@ Jv.call fetchfutur "then" [| Jv.repr handle_response |];
+    ()
+end
 
 let () =
   (*add on_click callback to map*)
