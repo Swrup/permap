@@ -1,6 +1,8 @@
 (executable
  (public_name permap)
  (modules
+  plant
+  db
   app
   content
   db

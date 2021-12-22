@@ -134,7 +134,7 @@ let avatar_image request =
 let plant_image request =
   let plant_id = Dream.param "plant_id" request in
   let nb = int_of_string (Dream.param "nb" request) in
-  let image = User.get_plant_image plant_id nb in
+  let image = Plant.get_plant_image plant_id nb in
   match image with
   | Ok (Some image) ->
     Dream.respond ~headers:[ ("Content-Type", "image") ] image
@@ -176,7 +176,7 @@ let add_plant_post request =
           | _, None -> render_unsafe "Invalide coordinate" request
           | Some lat, Some lng ->
             let res =
-              match User.add_plant (lat, lng) tags files nick with
+              match Plant.add_plant (lat, lng) tags files nick with
               | Ok () -> "Your plant was uploaded!"
               | Error e -> e
             in
@@ -193,12 +193,12 @@ let add_plant_post request =
       Dream.empty `Bad_Request )
 
 let markers request =
-  let marker_list = User.marker_list () in
+  let marker_list = Plant.marker_list () in
   match marker_list with
   | Ok marker_list ->
     let json =
       {| [ |}
-      ^ String.concat "," (List.map User.marker_to_geojson marker_list)
+      ^ String.concat "," (List.map Plant.marker_to_geojson marker_list)
       ^ "]"
     in
     Dream.respond ~headers:[ ("Content-Type", "application/json") ] json
