@@ -102,9 +102,9 @@ let profile_post request =
     | `Expired _
     | `Wrong_content_type -> (
       match%lwt Dream.multipart request with
-      | `Ok [ ("files", files) ] ->
+      | `Ok [ ("file", file) ] ->
         let res =
-          match User.upload_avatar files nick with
+          match User.upload_avatar file nick with
           | Ok () -> "Avatar was uploaded!"
           | Error e -> e
         in
@@ -142,6 +142,17 @@ let plant_image request =
   | Error _ ->
     Dream.empty `Not_Found
 
+let post_image request =
+  let post_id = Dream.param "post_id" request in
+  let image = Babillard.get_post_image post_id in
+  match image with
+  | Ok (Some image) ->
+    Dream.respond ~headers:[ ("Content-Type", "image") ] image
+  | Ok None
+  | Error _ ->
+    Dream.empty `Not_Found
+
+(* TODO fix *)
 let map request = page "map" request
 
 let add_plant_get request =
@@ -156,33 +167,25 @@ let add_plant_post request =
     match%lwt Dream.multipart request with
     | `Ok
         [ ("files", files)
-        ; ("lat_input", lat)
-        ; ("lng_input", lng)
-        ; ("tags", tags)
+        ; ("lat_input", [ (_, lat) ])
+        ; ("lng_input", [ (_, lng) ])
+        ; ("tags", [ (_, tags) ])
         ]
     | `Ok
         (("files", files)
-        :: ("lat_input", lat) :: ("lng_input", lng) :: ("tags", tags) :: _ :: _
+        :: ("lat_input", [ (_, lat) ])
+           :: ("lng_input", [ (_, lng) ]) :: ("tags", [ (_, tags) ]) :: _ :: _
         ) -> (
-      match tags with
-      | [] -> render_unsafe "Field tag is empty" request
-      | [ (_, tags) ] -> (
-        match (lat, lng) with
-        | [], _ -> render_unsafe "Field tag is empty" request
-        | _, [] -> render_unsafe "Field tag is empty" request
-        | [ (_, lat) ], [ (_, lng) ] -> (
-          match (Float.of_string_opt lat, Float.of_string_opt lng) with
-          | None, _ -> render_unsafe "Invalide coordinate" request
-          | _, None -> render_unsafe "Invalide coordinate" request
-          | Some lat, Some lng ->
-            let res =
-              match Plant.add_plant (lat, lng) tags files nick with
-              | Ok () -> "Your plant was uploaded!"
-              | Error e -> e
-            in
-            render_unsafe res request )
-        | _lat_lng -> Dream.empty `Bad_Request )
-      | _tags -> Dream.empty `Bad_Request )
+      match (Float.of_string_opt lat, Float.of_string_opt lng) with
+      | None, _ -> render_unsafe "Invalide coordinate" request
+      | _, None -> render_unsafe "Invalide coordinate" request
+      | Some lat, Some lng ->
+        let res =
+          match Plant.add_plant (lat, lng) tags files nick with
+          | Ok () -> "Your plant was uploaded!"
+          | Error e -> e
+        in
+        render_unsafe res request )
     | `Ok _ -> Dream.empty `Bad_Request
     | `Expired _
     | `Many_tokens _
@@ -192,7 +195,8 @@ let add_plant_post request =
     | `Wrong_content_type ->
       Dream.empty `Bad_Request )
 
-let markers request =
+let plant_markers request =
+  (*TODO should be in plant *)
   let marker_list = Plant.marker_list () in
   match marker_list with
   | Ok marker_list ->
@@ -203,6 +207,123 @@ let markers request =
     in
     Dream.respond ~headers:[ ("Content-Type", "application/json") ] json
   | Error e -> render_unsafe e request
+
+let thread_markers request =
+  (*TODO should be in babillard*)
+  let marker_list = Babillard.marker_list () in
+  match marker_list with
+  | Ok marker_list ->
+    let json =
+      {| [ |}
+      ^ String.concat "," (List.map Babillard.marker_to_geojson marker_list)
+      ^ "]"
+    in
+    Dream.respond ~headers:[ ("Content-Type", "application/json") ] json
+  | Error e -> render_unsafe e request
+
+let babillard_get request = render_unsafe (Babillard_page.f request) request
+
+let babillard_post request =
+  match Dream.session "nick" request with
+  | None -> render_unsafe "Not logged in" request
+  | Some nick -> (
+    match%lwt Dream.multipart request with
+    (*TODO jpp du duplicat la *)
+    | `Ok
+        [ ("file", file)
+        ; ("lat_input", [ (_, lat) ])
+        ; ("lng_input", [ (_, lng) ])
+        ; ("subject", [ (_, subject) ])
+        ; ("tags", [ (_, tags) ])
+        ; ("threadComment", [ (_, comment) ])
+        ]
+    | `Ok
+        (("file", file)
+        :: ("lat_input", [ (_, lat) ])
+           :: ("lng_input", [ (_, lng) ])
+              :: ("subject", [ (_, subject) ])
+                 :: ("tags", [ (_, tags) ])
+                    :: ("threadComment", [ (_, comment) ]) :: _ :: _ ) -> (
+      match (Float.of_string_opt lat, Float.of_string_opt lng) with
+      | None, _ -> render_unsafe "Invalide coordinate" request
+      | _, None -> render_unsafe "Invalide coordinate" request
+      | Some lat, Some lng -> (
+        match file with
+        | [] -> render_unsafe "No image" request
+        | _ :: _ :: _ -> render_unsafe "More than one image" request
+        | [ file ] ->
+          let res =
+            match
+              Babillard.make_thread comment file (lat, lng) subject tags nick
+            with
+            | Ok _post_id -> "Your thread was posted on the babillard!"
+            | Error e -> e
+          in
+          render_unsafe res request ) )
+    | `Ok _ -> Dream.empty `Bad_Request
+    | `Expired _
+    | `Many_tokens _
+    | `Missing_token _
+    | `Invalid_token _
+    | `Wrong_session _
+    | `Wrong_content_type ->
+      Dream.empty `Bad_Request )
+
+let thread_get request =
+  let thread_id = Dream.param "thread_id" request in
+  let thread_view = Babillard.view_thread thread_id in
+  match thread_view with
+  | Error e -> render_unsafe e request
+  | Ok thread_view ->
+    render_unsafe (Thread_page.f thread_view thread_id request) request
+
+(* get thread view but not wrapped in template, so we can display it on /babillard*)
+let thread_view request =
+  let thread_id = Dream.param "thread_id" request in
+  let thread_view = Babillard.view_thread thread_id in
+  match thread_view with
+  | Error e -> render_unsafe e request
+  | Ok thread_view ->
+    Dream.respond
+      ~headers:[ ("Content-Type", "html") ]
+      (Thread_page.f thread_view thread_id request)
+
+(*form to reply to a thread *)
+let thread_post request =
+  match Dream.session "nick" request with
+  | None -> render_unsafe "Not logged in" request
+  | Some nick -> (
+    match%lwt Dream.multipart request with
+    | `Ok
+        [ ("file", file)
+        ; ("replyComment", [ (_, comment) ])
+        ; ("tags", [ (_, tags) ])
+        ]
+    | `Ok
+        (("file", file)
+        :: ("tags", [ (_, tags) ])
+           :: ("replyComment", [ (_, comment) ]) :: _ :: _ ) ->
+      let parent_id = Dream.param "thread_id" request in
+      let res =
+        match file with
+        | [] -> Babillard.make_post ~comment ~tags ~parent_id nick
+        | [ file ] -> Babillard.make_post ~comment ~file ~tags ~parent_id nick
+        | _ :: _ :: _ -> Error "More than one image"
+      in
+      let msg =
+        match res with
+        | Ok _post_id -> "Your reply was posted"
+        | Error e -> e
+      in
+      render_unsafe msg request
+    | `Ok _ -> Dream.empty `Bad_Request
+    | `Expired _
+    | `Many_tokens _
+    | `Missing_token _
+    | `Invalid_token _
+    | `Wrong_session _
+    | `Wrong_content_type ->
+      Dream.empty `Bad_Request )
 
 let () =
   Dream.run @@ Dream.logger @@ Dream.memory_sessions
@@ -223,6 +344,13 @@ let () =
        ; Dream.get "/add_plant" add_plant_get
        ; Dream.post "/add_plant" add_plant_post
        ; Dream.get "/plant_pic/:plant_id/:nb" plant_image
-       ; Dream.get "/markers" markers
+       ; Dream.get "/plant_markers" plant_markers
+       ; Dream.get "/thread_markers" thread_markers
+       ; Dream.get "/thread_view/:thread_id" thread_view
+       ; Dream.get "/babillard" babillard_get
+       ; Dream.post "/babillard" babillard_post
+       ; Dream.get "/babillard/:thread_id" thread_get (*todo, bad names ^^*)
+       ; Dream.post "/babillard/:thread_id" thread_post
+       ; Dream.get "/post_pic/:post_id" post_image
        ]
   @@ Dream.not_found

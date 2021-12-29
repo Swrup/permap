@@ -83,6 +83,7 @@ let () =
   then
     Dream.warning (fun log -> log "can't create table")
 
+(* TODO make it return a Result? *)
 let view_plant plant_id =
   let count = Db.find_opt Q.count_plant_image plant_id in
   match count with
@@ -186,18 +187,19 @@ let get_plant_image plant_id nb =
   | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
 
 let add_plant (lat, lng) tags files nick =
-  let tags_len = String.length tags in
-  if tags_len > 1000 then
+  if String.length tags > 1000 then
     Error "tags too long"
   else
     let tag_list = Str.split (Str.regexp " +") tags in
-    (* id for plant*)
-    let ok_list = List.map (fun (_, content) -> is_valid_image content) files in
-    let valid_files = List.for_all (fun valid -> valid) ok_list in
-    if not valid_files then
+    let is_valid_list =
+      List.map (fun (_, content) -> is_valid_image content) files
+    in
+    let is_valid_files = List.for_all (fun valid -> valid) is_valid_list in
+    if not is_valid_files then
       Error "Invalid image"
     else
       (* add plant to db *)
+      (* make id for plant*)
       let plant_id = Uuidm.to_string (Uuidm.v4_gen random_state ()) in
       (* add to plant_id <-> user*)
       let res_plant = Db.exec Q.upload_plant_id (plant_id, nick) in
@@ -216,9 +218,11 @@ let add_plant (lat, lng) tags files nick =
               (fun tag -> Db.exec Q.upload_plant_tag (plant_id, tag))
               tag_list
           in
-          if List.exists Result.is_error res_tags then
-            Error (Format.sprintf "db error")
-          else
+          match List.find_opt Result.is_error res_tags with
+          | Some (Error e) ->
+            Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+          | Some _ -> assert false
+          | None -> (
             (* add to plant_id <-> image*)
             let res_images =
               List.find_opt Result.is_error
@@ -231,4 +235,4 @@ let add_plant (lat, lng) tags files nick =
             | Some (Error e) ->
               Error (Format.sprintf "db error: %s" (Caqti_error.show e))
             | Some (Ok _) -> assert false
-            | None -> Ok () ) )
+            | None -> Ok () ) ) )

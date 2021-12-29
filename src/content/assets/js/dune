@@ -1,8 +1,17 @@
 (rule
- (target map.js)
+ (target js_plant_map.js)
  (deps
-  (file ../../../map.bc.js))
+  (file ../../../js_plant_map.bc.js))
  (action
   (with-stdout-to
    %{target}
-   (cat ../../../map.bc.js))))
+   (cat ../../../js_plant_map.bc.js))))
+
+(rule
+ (target js_thread_map.js)
+ (deps
+  (file ../../../js_thread_map.bc.js))
+ (action
+  (with-stdout-to
+   %{target}
+   (cat ../../../js_thread_map.bc.js))))

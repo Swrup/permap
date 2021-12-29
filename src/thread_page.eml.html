@@ -1,0 +1,25 @@
+let f thread_view thread_id request =
+<script type="text/javascript" src="/assets/js/js_thread_map.js" defer="defer"></script>
+<%s  Format.sprintf "[Reply]" %>
+      <%s! thread_view %>
+
+% begin match Dream.session "nick" request with
+% | None ->
+
+% | Some _ ->
+      <div class="mb-3">
+        <%s! Dream.form_tag ~action:( Format.sprintf "/babillard/%s" thread_id)
+        ~enctype:`Multipart_form_data request %>
+
+        <label for="replyComment" id="replyCommentLabel" class="form-label">Comment</label>
+        <textarea name="replyComment" type="text" class="form-control" id="replyComment" aria-labelledby="replyCommentLabel"></textarea>
+
+        <label for="tags" id="tagsLabel" class="form-label">Tags</label>
+        <input name="tags" type="text" class="form-control" id="tags" aria-labelledby="tagsLabel"></input>
+
+        <input id="file" name="file" aria-describedby="fileHelp" type="file">
+        <div id="fileHelp" class="form-text">Add a picture to your post</div>
+      <button type="submit" class="btn btn-primary">Reply</button>
+      </div>
+    </form>
+% end;

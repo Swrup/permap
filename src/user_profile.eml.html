@@ -11,7 +11,7 @@ let f nick bio request =
 
     <img src="/user/<%s nick %>/avatar" class="img-thumbnail" alt="Your avatar picture">
     <%s! Dream.form_tag ~action:"/profile" ~enctype:`Multipart_form_data request %>
-      <input name="files" type="file" multiple>
+      <input name="file" type="file">
       <button>Submit!</button>
     </form>
     <%s! Plant.view_user_plant_list nick %>
