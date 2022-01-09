@@ -1,0 +1,20 @@
+let f request =
+<script type="text/javascript" src="/assets/js/js_babillard.js" defer="defer"></script>
+        <%s! Dream.form_tag ~action:"/babillard/new_thread" ~enctype:`Multipart_form_data request %>
+        <input type="hidden" id="lat_input" name="lat_input">
+        <input type="hidden" id="lng_input" name="lng_input">
+
+        <label for="subject" id="subjectLabel" class="form-label">Subject</label>
+        <input name="subject" type="text" class="form-control" id="subject" aria-labelledby="subjectLabel"></input>
+
+        <label for="threadComment" id="threadCommentLabel" class="form-label">Comment</label>
+        <textarea name="threadComment" type="text" class="form-control" id="threadComment" aria-labelledby="threadCommentLabel"></textarea>
+
+        <label for="tags" id="tagsLabel" class="form-label">Tags</label>
+        <input name="tags" type="text" class="form-control" id="tags" aria-labelledby="tagsLabel"></input>
+
+        <input id="file" name="file" aria-describedby="fileHelp" type="file">
+        <div id="fileHelp" class="form-text">Add a picture for your thread</div>
+        <div id="map"></div>
+      <button type="submit" class="btn btn-primary">Make Thread</button>
+    </form>

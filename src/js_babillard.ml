@@ -68,11 +68,27 @@ module Leaflet = struct
 end
 
 module Marker = struct
+  let marker_on_click thread_preview thread_id _e =
+    log "marker_on_click@.";
+    let thread_id = Jv.to_string thread_id in
+    let thread_preview_div = Jv.get Jv.global "thread_preview_div" in
+    ignore @@ Jv.set thread_preview_div "innerHTML" thread_preview;
+    let thread_link = Jv.get Jv.global "thread_link" in
+    let link = "/babillard/" ^ thread_id in
+    ignore @@ Jv.set thread_link "href" (Jv.of_string link);
+    ignore @@ Jv.set thread_link "innerText" (Jv.of_string "[View Thread]");
+    ()
+
   let on_each_feature feature layer =
     log "on_each_feature@.";
     let feature_properties = Jv.get feature "properties" in
-    let feature_properties_content = Jv.get feature_properties "content" in
-    ignore @@ Jv.call layer "bindPopup" [| feature_properties_content |];
+    let thread_preview = Jv.get feature_properties "content" in
+    let thread_id = Jv.get feature_properties "thread_id" in
+    ignore
+    @@ Jv.call layer "on"
+         [| Jv.of_string "click"
+          ; Jv.repr (marker_on_click thread_preview thread_id)
+         |];
     ()
 
   let handle_geojson geojson =
@@ -83,18 +99,18 @@ module Marker = struct
     let _marker_layer = Jv.call layer "addTo" [| Leaflet.map |] in
     ()
 
-  let handle_response response =
-    log "handle_response@.";
+  let markers_handle_response response =
+    log "markers_handle_response@.";
     let geo_json_list_futur = Jv.call response "json" [||] in
     ignore @@ Jv.call geo_json_list_futur "then" [| Jv.repr handle_geojson |];
     ()
 
   let () =
-    log "fetch plant geojson@.";
+    log "fetch thread geojson@.";
     let window = Jv.get Jv.global "window" in
     let fetchfutur =
-      Jv.call window "fetch" [| Jv.of_string "/plant_markers" |]
+      Jv.call window "fetch" [| Jv.of_string "/thread_markers" |]
     in
-    ignore @@ Jv.call fetchfutur "then" [| Jv.repr handle_response |];
+    ignore @@ Jv.call fetchfutur "then" [| Jv.repr markers_handle_response |];
     ()
 end

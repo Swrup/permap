@@ -284,7 +284,7 @@ let view_post post_id =
             {|
     <div class="file">
         <a title="%s" href="/post_pic/%s">
-        <img src="/post_pic/%s" style="width:100" loading="lazy">
+        <img src="/post_pic/%s" style="width:200px;height:200px;" loading="lazy">
         </a>
     </div> 
 |}
@@ -377,6 +377,7 @@ let view_thread thread_id =
         in
         Ok (String.concat "\n\r" view_posts) ) )
 
+(*TODO split verifying and doing stuff with uploading to the db*)
 let make_post ~comment ?file ~tags ?parent_id nick =
   let is_valid_comment =
     String.length comment < 10000
@@ -395,7 +396,6 @@ let make_post ~comment ?file ~tags ?parent_id nick =
   | _, false, _ -> Error "invalid file"
   | _, _, false -> Error "invalid tags"
   | true, true, true -> (
-    (*TODO make post_id a int *)
     let post_id = Uuidm.to_string (Uuidm.v4_gen random_state ()) in
     (* add to plant_id <-> user*)
     let res_post_id = Db.exec Q.upload_post_id (post_id, nick) in
@@ -404,6 +404,7 @@ let make_post ~comment ?file ~tags ?parent_id nick =
     let res_comment = Db.exec Q.upload_post_comment (post_id, comment) in
     let res_image =
       match file with
+      | None -> Ok ()
       | Some (image_name, image_content) ->
         let image_name =
           match image_name with
@@ -413,7 +414,6 @@ let make_post ~comment ?file ~tags ?parent_id nick =
             Uuidm.to_string (Uuidm.v4_gen random_state ())
         in
         Db.exec Q.upload_post_image (post_id, image_name, image_content)
-      | None -> Ok ()
     in
     let res_tags =
       match

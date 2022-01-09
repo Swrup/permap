@@ -8,10 +8,19 @@
    (cat ../../../js_plant_map.bc.js))))
 
 (rule
- (target js_thread_map.js)
+ (target js_babillard.js)
  (deps
-  (file ../../../js_thread_map.bc.js))
+  (file ../../../js_babillard.bc.js))
  (action
   (with-stdout-to
    %{target}
-   (cat ../../../js_thread_map.bc.js))))
+   (cat ../../../js_babillard.bc.js))))
+
+(rule
+ (target js_thread.js)
+ (deps
+  (file ../../../js_thread.bc.js))
+ (action
+  (with-stdout-to
+   %{target}
+   (cat ../../../js_thread.bc.js))))

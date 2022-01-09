@@ -223,7 +223,9 @@ let thread_markers request =
 
 let babillard_get request = render_unsafe (Babillard_page.f request) request
 
-let babillard_post request =
+let newthread_get request = render_unsafe (Newthread_page.f request) request
+
+let newthread_post request =
   match Dream.session "nick" request with
   | None -> render_unsafe "Not logged in" request
   | Some nick -> (
@@ -348,7 +350,8 @@ let () =
        ; Dream.get "/thread_markers" thread_markers
        ; Dream.get "/thread_view/:thread_id" thread_view
        ; Dream.get "/babillard" babillard_get
-       ; Dream.post "/babillard" babillard_post
+       ; Dream.get "/babillard/new_thread" newthread_get
+       ; Dream.post "/babillard/new_thread" newthread_post
        ; Dream.get "/babillard/:thread_id" thread_get (*todo, bad names ^^*)
        ; Dream.post "/babillard/:thread_id" thread_post
        ; Dream.get "/post_pic/:post_id" post_image

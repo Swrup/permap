@@ -1,6 +1,7 @@
 (executable
  (public_name permap)
  (modules
+  newthread_page
   thread_page
   babillard
   babillard_page
@@ -42,8 +43,18 @@
   (pps js_of_ocaml-ppx)))
 
 (executable
- (name js_thread_map)
- (modules js_thread_map)
+ (name js_babillard)
+ (modules js_babillard)
+ (libraries js_of_ocaml brr)
+ (modes js)
+ (js_of_ocaml
+  (javascript_files leaflet/leaflet.js))
+ (preprocess
+  (pps js_of_ocaml-ppx)))
+
+(executable
+ (name js_thread)
+ (modules js_thread)
  (libraries js_of_ocaml brr)
  (modes js)
  (js_of_ocaml
@@ -82,6 +93,12 @@
   (run dream_eml %{deps} --workspace %{workspace_root})))
 
 (rule
+ (targets newthread_page.ml)
+ (deps newthread_page.eml.html)
+ (action
+  (run dream_eml %{deps} --workspace %{workspace_root})))
+
+(rule
  (targets add_plant.ml)
  (deps add_plant.eml.html)
  (action
@@ -98,7 +115,8 @@
  (deps
   (source_tree content)
   (file content/assets/js/js_plant_map.js)
-  (file content/assets/js/js_thread_map.js))
+  (file content/assets/js/js_babillard.js)
+  (file content/assets/js/js_thread.js))
  (action
   (with-stdout-to
    %{null}
