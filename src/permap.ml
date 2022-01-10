@@ -152,9 +152,6 @@ let post_image request =
   | Error _ ->
     Dream.empty `Not_Found
 
-(* TODO fix *)
-let map request = page "map" request
-
 let add_plant_get request =
   match Dream.session "nick" request with
   | None -> render_unsafe "Not logged in" request
@@ -336,7 +333,6 @@ let () =
        ; Dream.post "/register" register_post
        ; Dream.get "/login" login_get
        ; Dream.post "/login" login_post
-       ; Dream.get "/map" map
        ; Dream.get "/user" user
        ; Dream.get "/user/:user" user_profile
        ; Dream.get "/user/:user/avatar" avatar_image
