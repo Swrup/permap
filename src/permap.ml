@@ -250,15 +250,15 @@ let newthread_post request =
         match file with
         | [] -> render_unsafe "No image" request
         | _ :: _ :: _ -> render_unsafe "More than one image" request
-        | [ file ] ->
-          let res =
-            match
-              Babillard.make_thread comment file (lat, lng) subject tags nick
-            with
-            | Ok _post_id -> "Your thread was posted on the babillard!"
-            | Error e -> e
-          in
-          render_unsafe res request ) )
+        | [ file ] -> (
+          match
+            Babillard.make_thread comment file (lat, lng) subject tags nick
+          with
+          | Ok thread_id ->
+            let adress = Format.sprintf "/babillard/%s" thread_id in
+            Dream.respond ~status:`See_Other ~headers:[ ("Location", adress) ]
+              "Your thread was posted on the babillard!"
+          | Error e -> render_unsafe e request ) ) )
     | `Ok _ -> Dream.empty `Bad_Request
     | `Expired _
     | `Many_tokens _
@@ -282,10 +282,7 @@ let thread_view request =
   let thread_view = Babillard.view_thread thread_id in
   match thread_view with
   | Error e -> render_unsafe e request
-  | Ok thread_view ->
-    Dream.respond
-      ~headers:[ ("Content-Type", "html") ]
-      (Thread_page.f thread_view thread_id request)
+  | Ok thread_view -> Dream.html (Thread_page.f thread_view thread_id request)
 
 (*form to reply to a thread *)
 let thread_post request =
@@ -301,7 +298,7 @@ let thread_post request =
     | `Ok
         (("file", file)
         :: ("tags", [ (_, tags) ])
-           :: ("replyComment", [ (_, comment) ]) :: _ :: _ ) ->
+           :: ("replyComment", [ (_, comment) ]) :: _ :: _ ) -> (
       let parent_id = Dream.param "thread_id" request in
       let res =
         match file with
@@ -309,12 +306,12 @@ let thread_post request =
         | [ file ] -> Babillard.make_post ~comment ~file ~tags ~parent_id nick
         | _ :: _ :: _ -> Error "More than one image"
       in
-      let msg =
-        match res with
-        | Ok _post_id -> "Your reply was posted"
-        | Error e -> e
-      in
-      render_unsafe msg request
+      match res with
+      | Ok post_id ->
+        let adress = Format.sprintf "/babillard/%s#%s" parent_id post_id in
+        Dream.respond ~status:`See_Other ~headers:[ ("Location", adress) ]
+          "Your thread was posted on the babillard!"
+      | Error e -> render_unsafe e request )
     | `Ok _ -> Dream.empty `Bad_Request
     | `Expired _
     | `Many_tokens _
