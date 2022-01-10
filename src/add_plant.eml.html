@@ -1,8 +1,11 @@
 let f nick request =
 <script type="text/javascript" src="/assets/js/js_plant_map.js" defer="defer"></script>
 <%s  Format.sprintf "Add a plant to your Collection %s !" nick %>
-      <div class="mb-3">
+<div class="row mb-3">
+      <div class="col-md-6">
 <div id="map"></div>
+      </div>
+      <div class="col-md-6">
         <%s! Dream.form_tag ~action:"/add_plant" ~enctype:`Multipart_form_data request %>
         <input type="hidden" id="lat_input" name="lat_input">
         <input type="hidden" id="lng_input" name="lng_input">
@@ -14,5 +17,5 @@ let f nick request =
         <input id="files" name="files" aria-describedby="filesHelp" type="file" multiple>
         <div id="filesHelp" class="form-text">Add a optional picture for your plant</div>
       <button type="submit" class="btn btn-primary">Add Plant</button>
-      </div>
     </form>
+   </div>

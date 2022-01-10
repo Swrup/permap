@@ -282,7 +282,7 @@ let view_post post_id =
           (*TODO thumbnails *)
           Format.sprintf
             {|
-    <div class="file">
+    <div class="postImage">
         <a title="%s" href="/post_pic/%s">
         <img src="/post_pic/%s" style="width:200px;height:200px;" loading="lazy">
         </a>
@@ -320,10 +320,12 @@ let view_post post_id =
       Ok
         (Format.sprintf
            {|
-<div class="post" id="%s">
-    %s
-    %s
-    <blockquote class="comment">%s</blockquote> 
+<div class="container">
+        <div class="post" id="%s">
+            %s
+            %s
+            <blockquote class="postComment">%s</blockquote> 
+        </div> 
 </div> 
 |}
            post_id post_info_view image_view comment )

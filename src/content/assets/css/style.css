@@ -2,7 +2,7 @@ body {
   padding-top: 3rem;
   padding-bottom: 3rem;
   color: #5a5a5a;
-  background-color: #EEEEEE;
+  background-color: #e8eaf6;
   line-height: 1.6;
   font-size: 18px;
 }
@@ -26,3 +26,26 @@ blockquote.blockquote {
   height: 800px;
   width: 600px;
 }
+
+.post {
+  background-color: #C5E1A5;
+  margin: 5px 5px 5px 5px;
+  border: 2px solid #FFB300;
+  padding: 2px;
+  display:table;
+}
+
+.postInfo {
+  display: block;
+  width: 100%;
+}
+
+.postComment {
+  display: block;
+}
+
+.postImage {
+  float: left;
+  padding: 5px 5px 5px 5px;
+}
+
