@@ -252,7 +252,7 @@ let newthread_post request =
         | _ :: _ :: _ -> render_unsafe "More than one image" request
         | [ file ] -> (
           match
-            Babillard.make_thread comment file (lat, lng) subject tags nick
+            Babillard.make_op ~comment ~image:file ~lat ~lng ~subject ~tags nick
           with
           | Ok thread_id ->
             let adress = Format.sprintf "/babillard/%s" thread_id in
@@ -302,8 +302,9 @@ let thread_post request =
       let parent_id = Dream.param "thread_id" request in
       let res =
         match file with
-        | [] -> Babillard.make_post ~comment ~tags ~parent_id nick
-        | [ file ] -> Babillard.make_post ~comment ~file ~tags ~parent_id nick
+        | [] -> Babillard.make_reply ~comment ~tags ~parent_id nick
+        | [ file ] ->
+          Babillard.make_reply ~comment ~image:file ~tags ~parent_id nick
         | _ :: _ :: _ -> Error "More than one image"
       in
       match res with

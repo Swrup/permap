@@ -1,5 +1,37 @@
 open Db
 
+exception Invalid_post of string
+
+type op =
+  { id : string
+  ; date : int
+  ; nick : string
+  ; subject : string
+  ; comment : string
+  ; image : string * string
+  ; tags : string list
+  ; longitude : float
+  ; latitude : float
+  ; replies : string list
+  ; citations : string list
+  }
+
+type reply =
+  { id : string
+  ; parent_id : string
+  ; date : int
+  ; nick : string
+  ; comment : string
+  ; image : (string * string) option
+  ; tags : string list
+  ; replies : string list
+  ; citations : string list
+  }
+
+type post =
+  | Op of op
+  | Reply of reply
+
 module Q = struct
   let create_post_user_table =
     Caqti_request.exec Caqti_type.unit
@@ -293,7 +325,7 @@ let view_post post_id =
       in
       let replies_view =
         {|<div class="repliesLink">|}
-        ^ String.concat ""
+        ^ String.concat " "
             (List.map
                (fun reply_id ->
                  Format.sprintf {|<a class="replyLink" href="#%s">>>%s</a>|}
@@ -379,113 +411,89 @@ let view_thread thread_id =
         in
         Ok (String.concat "\n\r" view_posts) ) )
 
-(*TODO split verifying and doing stuff with uploading to the db*)
-let make_post ~comment ?file ~tags ?parent_id nick =
-  let is_valid_comment =
-    String.length comment < 10000
-    (*&& String.escaped comment = comment*)
+let upload_post post =
+  let post_id, parent_id, date, nick, comment, image, tags, citations, op_data =
+    match post with
+    | Op
+        { id
+        ; date
+        ; nick
+        ; subject
+        ; comment
+        ; image
+        ; tags
+        ; longitude
+        ; latitude
+        ; replies = _replies
+        ; citations
+        } ->
+      let op_data = Some (subject, longitude, latitude) in
+      (id, id, date, nick, comment, Some image, tags, citations, op_data)
+    | Reply
+        { id
+        ; parent_id
+        ; date
+        ; nick
+        ; comment
+        ; image
+        ; tags
+        ; replies = _replies
+        ; citations
+        } ->
+      (id, parent_id, date, nick, comment, image, tags, citations, None)
   in
-  let is_valid_file =
-    match file with
-    | Some (_, image_content) -> is_valid_image image_content
-    | None -> true
+  let res_post_id = Db.exec Q.upload_post_id (post_id, nick) in
+  let res_comment = Db.exec Q.upload_post_comment (post_id, comment) in
+  let res_date = Db.exec Q.upload_post_date (post_id, date) in
+  let res_thread = Db.exec Q.upload_to_thread (parent_id, post_id) in
+  let res_image =
+    match image with
+    | None -> Ok ()
+    | Some (image_name, image_content) ->
+      Db.exec Q.upload_post_image (post_id, image_name, image_content)
   in
-  (* TODO latlng validation? *)
-  let is_valid_tags = String.length tags < 1000 in
-  let tag_list = Str.split (Str.regexp " +") tags in
-  match (is_valid_comment, is_valid_file, is_valid_tags) with
-  | false, _, _ -> Error "invalid comment"
-  | _, false, _ -> Error "invalid file"
-  | _, _, false -> Error "invalid tags"
-  | true, true, true -> (
-    let post_id = Uuidm.to_string (Uuidm.v4_gen random_state ()) in
-    (* add to plant_id <-> user*)
-    let res_post_id = Db.exec Q.upload_post_id (post_id, nick) in
-    let comment, cited_posts = parse_comment comment in
-
-    let res_comment = Db.exec Q.upload_post_comment (post_id, comment) in
-    let res_image =
-      match file with
-      | None -> Ok ()
-      | Some (image_name, image_content) ->
-        let image_name =
-          match image_name with
-          | Some image_name -> image_name
-          | None ->
-            (* make up random name if no name was given *)
-            Uuidm.to_string (Uuidm.v4_gen random_state ())
-        in
-        Db.exec Q.upload_post_image (post_id, image_name, image_content)
-    in
-    let res_tags =
-      match
-        List.find_opt Result.is_error
-          (List.map
-             (fun tag -> Db.exec Q.upload_post_tag (post_id, tag))
-             tag_list )
-      with
-      | Some (Error e) -> Error e
-      | Some _ -> assert false
-      | None -> Ok ()
-    in
-    (* TODO unix time *)
-    let date = int_of_float (Unix.time ()) in
-    let res_date = Db.exec Q.upload_post_date (post_id, date) in
-    let parent_id =
-      match parent_id with
-      | Some id -> id
-      | None -> post_id
-    in
-    let res_parent = Db.exec Q.upload_post_parent (post_id, parent_id) in
-    let res_citations =
-      match
-        List.find_opt Result.is_error
-          (List.map
-             (fun cited_id -> Db.exec Q.upload_post_reply (cited_id, post_id))
-             cited_posts )
-      with
-      | Some (Error e) -> Error e
-      | Some _ -> assert false
-      | None -> Ok ()
-    in
-    let res_thread = Db.exec Q.upload_to_thread (parent_id, post_id) in
-    let res =
+  let res_parent = Db.exec Q.upload_post_parent (post_id, parent_id) in
+  let res_tags =
+    match
       List.find_opt Result.is_error
-        [ res_post_id
-        ; res_comment
-        ; res_image
-        ; res_tags
-        ; res_date
-        ; res_parent
-        ; res_citations
-        ; res_thread
-        ]
-    in
-    match res with
-    | Some (Error e) ->
-      (* TODO try to remove post_id from post_user to clean db*)
-      Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+        (List.map (fun tag -> Db.exec Q.upload_post_tag (post_id, tag)) tags)
+    with
+    | Some (Error e) -> Error e
     | Some _ -> assert false
-    | None -> Ok post_id )
-
-let make_thread comment file (lat, lng) subject tags nick =
-  (* TODO latlng validation? *)
-  let is_valid_latlng = true in
-  let is_valid_subject =
-    String.length subject < 500 && String.escaped subject = subject
+    | None -> Ok ()
   in
-  (* OP must have tags (?) *)
-  let is_valid_tags = String.length tags < 1000 && String.length tags > 0 in
-  match (is_valid_latlng, is_valid_subject, is_valid_tags) with
-  | false, _, _ -> Error "invalid coordinate"
-  | _, false, _ -> Error "invalid subject"
-  | _, _, false -> Error "invalid or empty tags"
-  | true, true, true -> (
-    let res_post = make_post ~comment ~file ~tags nick in
-    match res_post with
-    | Error e -> Error e
-    | Ok post_id -> (
-      (* add fields specific to OP *)
+  let res_citations =
+    match
+      List.find_opt Result.is_error
+        (List.map
+           (fun cited_id -> Db.exec Q.upload_post_reply (cited_id, post_id))
+           citations )
+    with
+    | Some (Error e) -> Error e
+    | Some _ -> assert false
+    | None -> Ok ()
+  in
+  let res =
+    List.find_opt Result.is_error
+      [ res_post_id
+      ; res_comment
+      ; res_image
+      ; res_tags
+      ; res_date
+      ; res_parent
+      ; res_citations
+      ; res_thread
+      ]
+  in
+  match res with
+  | Some (Error e) ->
+    (* TODO try to remove post_id from post_user to clean db*)
+    Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+  | Some _ -> assert false
+  | None -> (
+    match op_data with
+    | None -> Ok post_id
+    | Some (subject, lng, lat) -> (
       let res_gps = Db.exec Q.upload_post_gps (post_id, lat, lng) in
       let res_subject = Db.exec Q.upload_post_subject (post_id, subject) in
       let res = List.find_opt Result.is_error [ res_gps; res_subject ] in
@@ -495,6 +503,98 @@ let make_thread comment file (lat, lng) subject tags nick =
         Error (Format.sprintf "db error: %s" (Caqti_error.show e))
       | Some _ -> assert false
       | None -> Ok post_id ) )
+
+let make_reply ~comment ?image ~tags ~parent_id nick =
+  if String.length comment > 10000 then
+    Error "invalid comment"
+  else
+    let image =
+      match image with
+      | Some (Some image_name, image_content) -> Some (image_name, image_content)
+      | Some (None, image_content) ->
+        (* make up random name if no name was given *)
+        let image_name = Uuidm.to_string (Uuidm.v4_gen random_state ()) in
+        Some (image_name, image_content)
+      | None -> None
+    in
+    let is_valid =
+      match image with
+      | None -> true
+      | Some (_, image_content) -> is_valid_image image_content
+    in
+    if not is_valid then
+      Error "invalid image"
+    else if String.length tags > 1000 then
+      Error "invalid tags"
+    else
+      (* TODO latlng validation? *)
+      let tag_list = Str.split (Str.regexp " +") tags in
+      let id = Uuidm.to_string (Uuidm.v4_gen random_state ()) in
+      let date = int_of_float (Unix.time ()) in
+      let comment, citations = parse_comment comment in
+      let reply =
+        Reply
+          { id
+          ; parent_id
+          ; date
+          ; nick
+          ; comment
+          ; image
+          ; tags = tag_list
+          ; replies = []
+          ; citations
+          }
+      in
+      upload_post reply
+
+let make_op ~comment ~image ~tags ~subject ~lat ~lng nick =
+  if String.length comment > 10000 then
+    Error "invalid comment"
+  else
+    let image =
+      match image with
+      | Some image_name, image_content -> (image_name, image_content)
+      | None, image_content ->
+        (* make up random name if no name was given *)
+        let image_name = Uuidm.to_string (Uuidm.v4_gen random_state ()) in
+        (image_name, image_content)
+    in
+    let is_valid =
+      match image with
+      | _, image_content -> is_valid_image image_content
+    in
+    if not is_valid then
+      Error "invalid image"
+    else if String.length tags > 1000 then
+      Error "invalid tags"
+    else
+      (* TODO latlng validation? *)
+      let is_valid_latlng = true in
+      if not is_valid_latlng then
+        Error "Invalid coordinate"
+      else if String.length subject > 600 then
+        Error "Invalid subject"
+      else
+        let tag_list = Str.split (Str.regexp " +") tags in
+        let id = Uuidm.to_string (Uuidm.v4_gen random_state ()) in
+        let date = int_of_float (Unix.time ()) in
+        let comment, citations = parse_comment comment in
+        let op =
+          Op
+            { id
+            ; date
+            ; nick
+            ; subject
+            ; comment
+            ; image
+            ; tags = tag_list
+            ; longitude = lng
+            ; latitude = lat
+            ; replies = []
+            ; citations
+            }
+        in
+        upload_post op
 
 (* TODO make this return geojson directly *)
 let marker_list () =
