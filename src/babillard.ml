@@ -32,6 +32,19 @@ type post =
   | Op of op
   | Reply of reply
 
+(* ('a option, string) result *)
+let ( let** ) o f =
+  match o with
+  | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+  | Ok None -> Error (Format.sprintf "db error: value not found")
+  | Ok (Some x) -> f x
+
+(* ('a, string) result *)
+let ( let* ) o f =
+  match o with
+  | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+  | Ok x -> f x
+
 module Q = struct
   let create_post_user_table =
     Caqti_request.exec Caqti_type.unit
@@ -242,101 +255,49 @@ let parse_comment comment =
   (comment, cited_posts)
 
 let view_post post_id =
-  let res_nick = Db.find Q.get_post_nick post_id in
-  let res_comment = Db.find Q.get_post_comment post_id in
-  let res_date = Db.find Q.get_post_date post_id in
-  let res_image_name = Db.find_opt Q.get_post_image_name post_id in
+  let* nick = Db.find Q.get_post_nick post_id in
+  let* comment = Db.find Q.get_post_comment post_id in
+  let* date = Db.find Q.get_post_date post_id in
+  let* image_name = Db.find_opt Q.get_post_image_name post_id in
 
-  let res_tags =
-    Db.fold Q.get_post_tags (fun tag acc -> tag :: acc) post_id []
-  in
-  let res_replies =
+  let* _tags = Db.fold Q.get_post_tags (fun tag acc -> tag :: acc) post_id [] in
+  let* replies =
     Db.fold Q.get_post_replies (fun reply_id acc -> reply_id :: acc) post_id []
   in
 
-  (* get more stuff for OP *)
-  let res_subject = Db.find_opt Q.get_post_subject post_id in
-  let res_latlng = Db.find_opt Q.get_post_gps post_id in
-
-  (* TODO clean taht idk urghh.. *)
-  let res0 =
-    match List.find_opt Result.is_error [ res_nick; res_comment ] with
-    | Some (Error e) -> Error e
-    | Some (Ok _) -> assert false
-    | None -> Ok ()
-  in
-  let res1 =
-    match List.find_opt Result.is_error [ res_image_name; res_subject ] with
-    | Some (Error e) -> Error e
-    | Some (Ok _) -> assert false
-    | None -> Ok ()
-  in
-  let res2 =
-    match res_latlng with
-    | Ok _ -> Ok ()
-    | Error e -> Error e
-  in
-  let res3 =
-    match List.find_opt Result.is_error [ res_tags; res_replies ] with
-    | Some (Error e) -> Error e
-    | Some (Ok _) -> assert false
-    | None -> Ok ()
-  in
-  let res4jpp =
-    match res_date with
-    | Ok _ -> Ok ()
-    | Error e -> Error e
-  in
-  match List.find_opt Result.is_error [ res0; res1; res2; res3; res4jpp ] with
-  | Some (Error e) -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
-  | None -> (
-    match
-      ( res_nick
-      , res_comment
-      , res_image_name
-      , res_date
-      , res_subject
-      , res_latlng
-      , res_tags
-      , res_replies )
-    with
-    | ( Ok nick
-      , Ok comment
-      , Ok image_name
-      , Ok date
-      , Ok _subject
-      , Ok _latlng
-      , Ok _tags
-      , Ok replies ) ->
-      let image_view =
-        match image_name with
-        | Some image_name ->
-          (*TODO thumbnails *)
-          Format.sprintf
-            {|
+  (* TODO special stuff for OP
+     let* _subject = Db.find_opt Q.get_post_subject post_id in
+     let* _latlng = Db.find_opt Q.get_post_gps post_id in
+  *)
+  let image_view =
+    match image_name with
+    | Some image_name ->
+      (*TODO thumbnails *)
+      Format.sprintf
+        {|
     <div class="postImage">
         <a title="%s" href="/post_pic/%s">
         <img src="/post_pic/%s" style="width:200px;height:200px;" loading="lazy">
         </a>
     </div> 
 |}
-            image_name post_id post_id
-        | None -> ""
-      in
-      let replies_view =
-        {|<div class="repliesLink">|}
-        ^ String.concat " "
-            (List.map
-               (fun reply_id ->
-                 Format.sprintf {|<a class="replyLink" href="#%s">>>%s</a>|}
-                   reply_id reply_id )
-               replies )
-        ^ {|</div> |}
-      in
-      (* TODO how to display date, I should probably render everything on the client*)
-      let post_info_view =
-        Format.sprintf
-          {|
+        image_name post_id post_id
+    | None -> ""
+  in
+  let replies_view =
+    {|<div class="repliesLink">|}
+    ^ String.concat " "
+        (List.map
+           (fun reply_id ->
+             Format.sprintf {|<a class="replyLink" href="#%s">>>%s</a>|}
+               reply_id reply_id )
+           replies )
+    ^ {|</div> |}
+  in
+  (* TODO how to display date, I should probably render everything on the client*)
+  let post_info_view =
+    Format.sprintf
+      {|
     <div class="postInfo"
         <span class=nick>%s</span>
         <span class=date unix-time="%d"></span>
@@ -346,12 +307,11 @@ let view_post post_id =
         </span>
         %s
     </div>|}
-          nick date post_id post_id post_id replies_view
-      in
-
-      Ok
-        (Format.sprintf
-           {|
+      nick date post_id post_id post_id replies_view
+  in
+  let post_view =
+    Format.sprintf
+      {|
 <div class="container">
         <div class="post" id="%s">
             %s
@@ -360,56 +320,46 @@ let view_post post_id =
         </div> 
 </div> 
 |}
-           post_id post_info_view image_view comment )
-    | _ -> assert false )
-  | _ -> assert false
+      post_id post_info_view image_view comment
+  in
+  Ok post_view
 
 let view_thread thread_id =
-  let res = Db.find_opt Q.is_thread thread_id in
-  match res with
-  | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
-  | Ok None -> Error "Not a thread"
-  | Ok (Some _) -> (
-    let thread_posts =
-      Db.fold Q.get_thread_posts
-        (fun post_id acc -> post_id :: acc)
-        thread_id []
+  let** _ = Db.find_opt Q.is_thread thread_id in
+  let* thread_posts =
+    Db.fold Q.get_thread_posts (fun post_id acc -> post_id :: acc) thread_id []
+  in
+  (*order by date *)
+  (*TODO do this more clean *)
+  let dates =
+    List.map (fun post_id -> Db.find Q.get_post_date post_id) thread_posts
+  in
+  match List.find_opt Result.is_error dates with
+  | Some (Error e) -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+  | Some (Ok _) -> assert false
+  | None ->
+    let dates =
+      List.map
+        (function
+          | Ok date -> date
+          | Error _ -> assert false )
+        dates
     in
-    match thread_posts with
-    | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
-    | Ok thread_posts -> (
-      (*order by date *)
-      (*TODO do this more clean *)
-      let dates =
-        List.map (fun post_id -> Db.find Q.get_post_date post_id) thread_posts
-      in
-      match List.find_opt Result.is_error dates with
-      | Some (Error e) ->
-        Error (Format.sprintf "db error: %s" (Caqti_error.show e))
-      | Some (Ok _) -> assert false
-      | None ->
-        let dates =
-          List.map
-            (function
-              | Ok date -> date
-              | Error _ -> assert false )
-            dates
-        in
-        let posts_dates = List.combine thread_posts dates in
-        let sorted_posts_dates =
-          List.sort (fun (_, a) (_, b) -> compare a b) posts_dates
-        in
+    let posts_dates = List.combine thread_posts dates in
+    let sorted_posts_dates =
+      List.sort (fun (_, a) (_, b) -> compare a b) posts_dates
+    in
 
-        let posts, _ = List.split sorted_posts_dates in
-        let view_posts = List.map view_post posts in
-        let view_posts =
-          List.map
-            (function
-              | Ok view -> view
-              | Error _ -> assert false )
-            (List.filter Result.is_ok view_posts)
-        in
-        Ok (String.concat "\n\r" view_posts) ) )
+    let posts, _ = List.split sorted_posts_dates in
+    let view_posts = List.map view_post posts in
+    let view_posts =
+      List.map
+        (function
+          | Ok view -> view
+          | Error _ -> assert false )
+        (List.filter Result.is_ok view_posts)
+    in
+    Ok (String.concat "\n\r" view_posts)
 
 let upload_post post =
   let post_id, parent_id, date, nick, comment, image, tags, citations, op_data =
@@ -442,18 +392,18 @@ let upload_post post =
         } ->
       (id, parent_id, date, nick, comment, image, tags, citations, None)
   in
-  let res_post_id = Db.exec Q.upload_post_id (post_id, nick) in
-  let res_comment = Db.exec Q.upload_post_comment (post_id, comment) in
-  let res_date = Db.exec Q.upload_post_date (post_id, date) in
-  let res_thread = Db.exec Q.upload_to_thread (parent_id, post_id) in
-  let res_image =
+  let* _res_post_id = Db.exec Q.upload_post_id (post_id, nick) in
+  let* _res_comment = Db.exec Q.upload_post_comment (post_id, comment) in
+  let* _res_date = Db.exec Q.upload_post_date (post_id, date) in
+  let* _res_thread = Db.exec Q.upload_to_thread (parent_id, post_id) in
+  let* _res_image =
     match image with
     | None -> Ok ()
     | Some (image_name, image_content) ->
       Db.exec Q.upload_post_image (post_id, image_name, image_content)
   in
-  let res_parent = Db.exec Q.upload_post_parent (post_id, parent_id) in
-  let res_tags =
+  let* _res_parent = Db.exec Q.upload_post_parent (post_id, parent_id) in
+  let* _res_tags =
     match
       List.find_opt Result.is_error
         (List.map (fun tag -> Db.exec Q.upload_post_tag (post_id, tag)) tags)
@@ -462,7 +412,7 @@ let upload_post post =
     | Some _ -> assert false
     | None -> Ok ()
   in
-  let res_citations =
+  let* _res_citations =
     match
       List.find_opt Result.is_error
         (List.map
@@ -473,36 +423,12 @@ let upload_post post =
     | Some _ -> assert false
     | None -> Ok ()
   in
-  let res =
-    List.find_opt Result.is_error
-      [ res_post_id
-      ; res_comment
-      ; res_image
-      ; res_tags
-      ; res_date
-      ; res_parent
-      ; res_citations
-      ; res_thread
-      ]
-  in
-  match res with
-  | Some (Error e) ->
-    (* TODO try to remove post_id from post_user to clean db*)
-    Error (Format.sprintf "db error: %s" (Caqti_error.show e))
-  | Some _ -> assert false
-  | None -> (
-    match op_data with
-    | None -> Ok post_id
-    | Some (subject, lng, lat) -> (
-      let res_gps = Db.exec Q.upload_post_gps (post_id, lat, lng) in
-      let res_subject = Db.exec Q.upload_post_subject (post_id, subject) in
-      let res = List.find_opt Result.is_error [ res_gps; res_subject ] in
-      match res with
-      | Some (Error e) ->
-        (* TODO try to remove post_id from post_user *)
-        Error (Format.sprintf "db error: %s" (Caqti_error.show e))
-      | Some _ -> assert false
-      | None -> Ok post_id ) )
+  match op_data with
+  | None -> Ok post_id
+  | Some (subject, lng, lat) ->
+    let* _res_gps = Db.exec Q.upload_post_gps (post_id, lat, lng) in
+    let* _res_subject = Db.exec Q.upload_post_subject (post_id, subject) in
+    Ok post_id
 
 let make_reply ~comment ?image ~tags ~parent_id nick =
   if String.length comment > 10000 then
@@ -598,36 +524,33 @@ let make_op ~comment ~image ~tags ~subject ~lat ~lng nick =
 
 (* TODO make this return geojson directly *)
 let marker_list () =
-  let thread_id_list =
+  let* thread_id_list =
     Db.fold Q.list_thread_ids (fun thread_id acc -> thread_id :: acc) () []
   in
-  match thread_id_list with
-  | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
-  | Ok thread_id_list ->
-    let markers_res =
-      List.map
-        (fun thread_id ->
-          match Db.find_opt Q.get_post_gps thread_id with
-          | Ok (Some (lat, lng)) ->
-            let content =
-              match view_post thread_id with
-              | Ok s -> s
-              | Error e -> e
-            in
-            Ok (lat, lng, content, thread_id)
-          | Ok None -> Error "latlng not found"
-          | Error e ->
-            Error (Format.sprintf "db error: %s" (Caqti_error.show e)) )
-        thread_id_list
-    in
-    let markers =
-      List.map
-        (function
-          | Ok res -> res
-          | Error _ -> assert false )
-        (List.filter Result.is_ok markers_res)
-    in
-    Ok markers
+  let markers_res =
+    List.map
+      (fun thread_id ->
+        match Db.find_opt Q.get_post_gps thread_id with
+        | Ok (Some (lat, lng)) ->
+          let content =
+            match view_post thread_id with
+            | Ok s -> s
+            | Error e -> e
+          in
+          Ok (lat, lng, content, thread_id)
+        | Ok None -> Error "latlng not found"
+        | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+        )
+      thread_id_list
+  in
+  let markers =
+    List.map
+      (function
+        | Ok res -> res
+        | Error _ -> assert false )
+      (List.filter Result.is_ok markers_res)
+  in
+  Ok markers
 
 let marker_to_geojson marker =
   match marker with
@@ -651,10 +574,5 @@ let marker_to_geojson marker =
       (Float.to_string lat) (String.escaped content) thread_id
 
 let get_post_image post_id =
-  let res = Db.find_opt Q.get_post_image_content post_id in
-  match res with
-  | Ok content -> (
-    match content with
-    | Some content -> Ok (Some content)
-    | None -> Error "Image not found" )
-  | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+  let** content = Db.find_opt Q.get_post_image_content post_id in
+  Ok content

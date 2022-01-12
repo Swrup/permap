@@ -1,5 +1,18 @@
 open Db
 
+(* ('a option, string) result *)
+let ( let** ) o f =
+  match o with
+  | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+  | Ok None -> Error (Format.sprintf "db error: value not found")
+  | Ok (Some x) -> f x
+
+(* ('a, string) result *)
+let ( let* ) o f =
+  match o with
+  | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+  | Ok x -> f x
+
 module Q = struct
   let create_plant_user_table =
     Caqti_request.exec Caqti_type.unit
@@ -118,33 +131,30 @@ let view_plant plant_id =
   | Error e -> Format.sprintf "db error: %s" (Caqti_error.show e)
 
 let marker_list () =
-  let plant_id_list =
+  let* plant_id_list =
     Db.fold Q.list_plant_ids (fun plant_id acc -> plant_id :: acc) () []
   in
-  match plant_id_list with
-  | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
-  | Ok plant_id_list ->
-    let markers_res =
-      List.map
-        (fun plant_id ->
-          match Db.find_opt Q.get_plant_gps plant_id with
-          | Ok (Some (lat, lng)) ->
-            let content = view_plant plant_id in
-            Ok (lat, lng, content)
-          | Ok None -> Error "latlng not found"
-          | Error e ->
-            Error (Format.sprintf "db error: %s" (Caqti_error.show e)) )
-        plant_id_list
-    in
-    let markers =
-      List.map
-        (fun res ->
-          match res with
-          | Ok res -> res
-          | Error _ -> assert false )
-        (List.filter Result.is_ok markers_res)
-    in
-    Ok markers
+  let markers_res =
+    List.map
+      (fun plant_id ->
+        match Db.find_opt Q.get_plant_gps plant_id with
+        | Ok (Some (lat, lng)) ->
+          let content = view_plant plant_id in
+          Ok (lat, lng, content)
+        | Ok None -> Error "latlng not found"
+        | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+        )
+      plant_id_list
+  in
+  let markers =
+    List.map
+      (fun res ->
+        match res with
+        | Ok res -> res
+        | Error _ -> assert false )
+      (List.filter Result.is_ok markers_res)
+  in
+  Ok markers
 
 let marker_to_geojson marker =
   match marker with
@@ -167,6 +177,7 @@ let marker_to_geojson marker =
       (Float.to_string lng)
       (Float.to_string lat) (String.escaped content)
 
+(* TODO return result *)
 let view_user_plant_list nick =
   let plant_id_list =
     Db.fold Q.get_user_plants (fun plant_id acc -> plant_id :: acc) nick []
@@ -178,14 +189,10 @@ let view_user_plant_list nick =
     String.concat "\n" plants
 
 let get_plant_image plant_id nb =
-  let res = Db.find_opt Q.get_plant_image (plant_id, nb) in
-  match res with
-  | Ok content -> (
-    match content with
-    | Some content -> Ok (Some content)
-    | None -> Error "Image not found" )
-  | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+  let** content = Db.find_opt Q.get_plant_image (plant_id, nb) in
+  Ok content
 
+(*TODO split validation and uploading to db like for babillard *)
 let add_plant (lat, lng) tags files nick =
   if String.length tags > 1000 then
     Error "tags too long"
