@@ -1,7 +1,7 @@
 let f request =
 <script type="text/javascript" src="/assets/js/js_babillard.js" defer="defer"></script>
-<div id="board" boardvalue="babillard">
-<%s  Format.sprintf "Babillard is love" %>
+<div id="board" boardvalue="plants">
+<%s  Format.sprintf "Plants is love" %>
 </div>
 <div class="row mb-3">
       <div class="col-md-6">
@@ -9,7 +9,7 @@ let f request =
 % | None ->
 
 % | Some _nick ->
-<a href="/babillard/new_thread">[New Thread]</a>
+<a href="/plants/new_thread">[New Thread]</a>
 % end;
 <div id="map"></div>
       </div>

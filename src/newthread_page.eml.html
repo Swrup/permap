@@ -1,6 +1,6 @@
-let f request =
+let f ~board request =
 <script type="text/javascript" src="/assets/js/js_babillard.js" defer="defer"></script>
-        <%s! Dream.form_tag ~action:"/babillard/new_thread" ~enctype:`Multipart_form_data request %>
+        <%s! Dream.form_tag ~action:(Format.sprintf "/%s/new_thread" (Babillard.string_of_board board)) ~enctype:`Multipart_form_data request %>
         <input type="hidden" id="lat_input" name="lat_input">
         <input type="hidden" id="lng_input" name="lng_input">
 

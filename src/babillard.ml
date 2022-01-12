@@ -2,8 +2,26 @@ open Db
 
 exception Invalid_post of string
 
+type board =
+  | Plants
+  | Babillard
+
+let int_of_board = function
+  | Plants -> 0
+  | Babillard -> 1
+
+let string_of_board = function
+  | Plants -> "plants"
+  | Babillard -> "babillard"
+
+let board_of_int = function
+  | 0 -> Plants
+  | 1 -> Babillard
+  | _ -> assert false
+
 type op =
   { id : string
+  ; board : board
   ; date : int
   ; nick : string
   ; subject : string
@@ -58,6 +76,12 @@ module Q = struct
        FOREIGN KEY(post_id) REFERENCES post_user(post_id),\n\
       \       FOREIGN KEY(parent_id) REFERENCES post_user(post_id));"
 
+  let create_thread_board_table =
+    Caqti_request.exec Caqti_type.unit
+      "CREATE TABLE IF NOT EXISTS thread_board (thread_id TEXT, board INT, \
+       FOREIGN KEY(thread_id) REFERENCES post_user(post_id));"
+
+  (* TODO useless? *)
   let create_thread_table =
     Caqti_request.exec Caqti_type.unit
       "CREATE TABLE IF NOT EXISTS threads (thread_id TEXT, post_id TEXT,\n\
@@ -151,6 +175,11 @@ module Q = struct
       Caqti_type.(tup2 string string)
       "INSERT INTO threads VALUES (?,?);"
 
+  let upload_thread_board =
+    Caqti_request.exec
+      Caqti_type.(tup2 string int)
+      "INSERT INTO thread_board VALUES (?,?);"
+
   let upload_post_parent =
     Caqti_request.exec
       Caqti_type.(tup2 string string)
@@ -197,6 +226,10 @@ module Q = struct
     Caqti_request.find_opt Caqti_type.string Caqti_type.string
       "SELECT thread_id FROM threads WHERE thread_id=? LIMIT 1;"
 
+  let get_thread_board =
+    Caqti_request.find Caqti_type.string Caqti_type.int
+      "SELECT board FROM thread_board WHERE thread_id=? LIMIT 1;"
+
   let get_post_subject =
     Caqti_request.find_opt Caqti_type.string Caqti_type.string
       "SELECT subject FROM post_subject WHERE post_id=?;"
@@ -206,9 +239,9 @@ module Q = struct
       Caqti_type.(tup2 float float)
       "SELECT lat, lng FROM post_gps WHERE post_id=?;"
 
-  let list_thread_ids =
-    Caqti_request.collect Caqti_type.unit Caqti_type.string
-      "SELECT thread_id FROM threads;"
+  let list_threads =
+    Caqti_request.collect Caqti_type.int Caqti_type.string
+      "SELECT thread_id FROM thread_board WHERE board=?;"
 end
 
 let () =
@@ -216,6 +249,7 @@ let () =
     [ Q.create_post_user_table
     ; Q.create_post_parent_table
     ; Q.create_thread_table
+    ; Q.create_thread_board_table
     ; Q.create_post_replies_table
     ; Q.create_post_citations_table
     ; Q.create_post_date_table
@@ -233,6 +267,7 @@ let () =
     Dream.warning (fun log -> log "can't create table")
 
 (* TODO should I escape html or smthing ?*)
+(*TODO fix bad link if post in other thread*)
 let parse_comment comment =
   let words = String.split_on_char ' ' comment in
   let cited_posts, words =
@@ -366,6 +401,7 @@ let upload_post post =
     match post with
     | Op
         { id
+        ; board
         ; date
         ; nick
         ; subject
@@ -377,7 +413,7 @@ let upload_post post =
         ; replies = _replies
         ; citations
         } ->
-      let op_data = Some (subject, longitude, latitude) in
+      let op_data = Some (board, subject, longitude, latitude) in
       (id, id, date, nick, comment, Some image, tags, citations, op_data)
     | Reply
         { id
@@ -425,7 +461,10 @@ let upload_post post =
   in
   match op_data with
   | None -> Ok post_id
-  | Some (subject, lng, lat) ->
+  | Some (board, subject, lng, lat) ->
+    let* _res_board =
+      Db.exec Q.upload_thread_board (post_id, int_of_board board)
+    in
     let* _res_gps = Db.exec Q.upload_post_gps (post_id, lat, lng) in
     let* _res_subject = Db.exec Q.upload_post_subject (post_id, subject) in
     Ok post_id
@@ -473,7 +512,7 @@ let make_reply ~comment ?image ~tags ~parent_id nick =
       in
       upload_post reply
 
-let make_op ~comment ~image ~tags ~subject ~lat ~lng nick =
+let make_op ~comment ~image ~tags ~subject ~lat ~lng ~board nick =
   if String.length comment > 10000 then
     Error "invalid comment"
   else
@@ -508,6 +547,7 @@ let make_op ~comment ~image ~tags ~subject ~lat ~lng nick =
         let op =
           Op
             { id
+            ; board
             ; date
             ; nick
             ; subject
@@ -523,9 +563,11 @@ let make_op ~comment ~image ~tags ~subject ~lat ~lng nick =
         upload_post op
 
 (* TODO make this return geojson directly *)
-let marker_list () =
+let marker_list board =
   let* thread_id_list =
-    Db.fold Q.list_thread_ids (fun thread_id acc -> thread_id :: acc) () []
+    Db.fold Q.list_threads
+      (fun thread_id acc -> thread_id :: acc)
+      (int_of_board board) []
   in
   let markers_res =
     List.map

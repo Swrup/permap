@@ -74,7 +74,12 @@ module Marker = struct
     let thread_preview_div = Jv.get Jv.global "thread_preview_div" in
     ignore @@ Jv.set thread_preview_div "innerHTML" thread_preview;
     let thread_link = Jv.get Jv.global "thread_link" in
-    let link = "/babillard/" ^ thread_id in
+    let board_div = Jv.get Jv.global "board" in
+    let board =
+      Jv.to_string
+        (Jv.call board_div "getAttribute" [| Jv.of_string "boardvalue" |])
+    in
+    let link = "/" ^ board ^ "/" ^ thread_id in
     ignore @@ Jv.set thread_link "href" (Jv.of_string link);
     ignore @@ Jv.set thread_link "innerText" (Jv.of_string "[View Thread]");
     ()
@@ -107,9 +112,14 @@ module Marker = struct
 
   let () =
     log "fetch thread geojson@.";
+    let board_div = Jv.get Jv.global "board" in
+    let board =
+      Jv.to_string
+        (Jv.call board_div "getAttribute" [| Jv.of_string "boardvalue" |])
+    in
     let window = Jv.get Jv.global "window" in
     let fetchfutur =
-      Jv.call window "fetch" [| Jv.of_string "/thread_markers" |]
+      Jv.call window "fetch" [| Jv.of_string ("/" ^ board ^ "/markers") |]
     in
     ignore @@ Jv.call fetchfutur "then" [| Jv.repr markers_handle_response |];
     ()

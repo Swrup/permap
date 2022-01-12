@@ -1,4 +1,17 @@
+(*TODO implement plants as special posts? *)
 open Db
+
+type t =
+  { id : string
+  ; date : int
+  ; nick : string (*TODO ? ; comment : string *)
+  ; images : (string * string) list
+  ; tags : string list
+  ; longitude : float
+  ; latitude : float
+  ; replies : string list
+  ; citations : string list
+  }
 
 (* ('a option, string) result *)
 let ( let** ) o f =
@@ -96,39 +109,29 @@ let () =
   then
     Dream.warning (fun log -> log "can't create table")
 
-(* TODO make it return a Result? *)
 let view_plant plant_id =
-  let count = Db.find_opt Q.count_plant_image plant_id in
-  match count with
-  | Ok count -> (
-    match count with
-    | Some count -> (
-      let gps =
-        match Db.find_opt Q.get_plant_gps plant_id with
-        | Ok (Some (lat, lng)) ->
-          Float.to_string lat ^ " " ^ Float.to_string lng
-        | Ok None -> ""
-        | Error e -> Format.sprintf "db error: %s" (Caqti_error.show e)
-      in
-      let images =
-        String.concat "\n"
-          (List.map
-             (Format.sprintf
-                {|<li><img src="/plant_pic/%s/%i" class="img-thumbnail"></li>|}
-                plant_id )
-             (List.init count (fun i -> i)) )
-      in
-      let tags =
-        Db.fold Q.get_plant_tags (fun tag acc -> tag :: acc) plant_id []
-      in
-      match tags with
-      | Error e -> Format.sprintf "db error: %s" (Caqti_error.show e)
-      | Ok tags ->
-        let tags = String.concat " " tags in
-        (* TODO add link to gps/map too *)
-        images ^ tags ^ gps )
-    | None -> "db error" )
-  | Error e -> Format.sprintf "db error: %s" (Caqti_error.show e)
+  let** count = Db.find_opt Q.count_plant_image plant_id in
+  let gps =
+    match Db.find_opt Q.get_plant_gps plant_id with
+    | Ok (Some (lat, lng)) -> Float.to_string lat ^ " " ^ Float.to_string lng
+    | Ok None -> ""
+    | Error e -> Format.sprintf "db error: %s" (Caqti_error.show e)
+  in
+  let images =
+    String.concat "\n"
+      (List.map
+         (Format.sprintf
+            {|<li><img src="/plant_pic/%s/%i" class="img-thumbnail"></li>|}
+            plant_id )
+         (List.init count (fun i -> i)) )
+  in
+  let tags = Db.fold Q.get_plant_tags (fun tag acc -> tag :: acc) plant_id [] in
+  match tags with
+  | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+  | Ok tags ->
+    let tags = String.concat " " tags in
+    (* TODO add link to gps/map too *)
+    Ok (images ^ tags ^ gps)
 
 let marker_list () =
   let* plant_id_list =
@@ -138,9 +141,11 @@ let marker_list () =
     List.map
       (fun plant_id ->
         match Db.find_opt Q.get_plant_gps plant_id with
-        | Ok (Some (lat, lng)) ->
+        | Ok (Some (lat, lng)) -> (
           let content = view_plant plant_id in
-          Ok (lat, lng, content)
+          match content with
+          | Error e -> Error e
+          | Ok content -> Ok (lat, lng, content) )
         | Ok None -> Error "latlng not found"
         | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
         )
@@ -172,12 +177,10 @@ let marker_to_geojson marker =
   }
 } 
 |}
-      (*TODO escape in content ?? *)
       (* geojson use lng lat, and not lat lng*)
       (Float.to_string lng)
       (Float.to_string lat) (String.escaped content)
 
-(* TODO return result *)
 let view_user_plant_list nick =
   let plant_id_list =
     Db.fold Q.get_user_plants (fun plant_id acc -> plant_id :: acc) nick []
@@ -185,7 +188,14 @@ let view_user_plant_list nick =
   match plant_id_list with
   | Error e -> Format.sprintf "db error: %s" (Caqti_error.show e)
   | Ok plant_id_list ->
-    let plants = List.map view_plant plant_id_list in
+    let plants =
+      List.map
+        (fun p ->
+          match view_plant p with
+          | Ok p -> p
+          | Error _ -> "" )
+        plant_id_list
+    in
     String.concat "\n" plants
 
 let get_plant_image plant_id nb =

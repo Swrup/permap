@@ -5,7 +5,7 @@
   thread_page
   babillard
   babillard_page
-  plant
+  plants_page
   db
   app
   content
@@ -15,8 +15,7 @@
   register
   template
   user
-  user_profile
-  add_plant)
+  user_profile)
  (libraries
   uuidm
   caqti.blocking
@@ -99,8 +98,8 @@
   (run dream_eml %{deps} --workspace %{workspace_root})))
 
 (rule
- (targets add_plant.ml)
- (deps add_plant.eml.html)
+ (targets plants_page.ml)
+ (deps plants_page.eml.html)
  (action
   (run dream_eml %{deps} --workspace %{workspace_root})))
 
