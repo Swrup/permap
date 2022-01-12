@@ -266,27 +266,61 @@ let () =
   then
     Dream.warning (fun log -> log "can't create table")
 
-(* TODO should I escape html or smthing ?*)
+(* TODO: Is this safe? *)
 (*TODO fix bad link if post in other thread*)
 let parse_comment comment =
-  let words = String.split_on_char ' ' comment in
-  let cited_posts, words =
-    List.fold_left
-      (fun (acc_cited, acc_posts) w ->
-        match String.starts_with ~prefix:">>" w with
-        | false -> (acc_cited, acc_posts @ [ w ])
-        | true -> (
-          let sub_w = String.sub w 2 (String.length w - 2) in
-          match Uuidm.of_string sub_w with
-          | None -> (acc_cited, acc_posts @ [ w ])
-          | Some _ ->
-            let new_w = Format.sprintf {|<a href="#%s">%s</a>|} sub_w w in
-            (acc_cited @ [ sub_w ], acc_posts @ [ new_w ]) ) )
-      ([], []) words
+  let handle_word w =
+    let trim_w = String.trim w in
+    (* '>' is '&gt;' after html_escape *)
+    match String.starts_with ~prefix:{|&gt;&gt;|} trim_w with
+    | false -> (w, None)
+    | true -> (
+      let sub_w = String.sub trim_w 8 (String.length trim_w - 8) in
+      match Uuidm.of_string sub_w with
+      | None -> (w, None)
+      | Some _ ->
+        let new_w = Format.sprintf {|<a href="#%s">%s</a>|} sub_w w in
+        (new_w, Some sub_w) )
   in
-  let comment = String.concat (String.make 1 ' ') words in
-  (* remove duplicate *)
-  let cited_posts = List.sort_uniq (fun _ _ -> 0) cited_posts in
+  let handle_line l =
+    let trim_w = String.trim l in
+    (*insert quote*)
+    let line =
+      match
+        String.starts_with ~prefix:{|&gt;|} trim_w
+        && not (String.starts_with ~prefix:{|&gt;&gt;|} trim_w)
+      with
+      | false -> l
+      | true -> {|<span class="quote">|} ^ l ^ {|</span>|}
+    in
+    let words = String.split_on_char ' ' line in
+    let words, cited_posts =
+      List.fold_left
+        (fun (acc_words, acc_cited_posts) w ->
+          match handle_word w with
+          | w, Some cited_id ->
+            (acc_words @ [ w ], acc_cited_posts @ [ cited_id ])
+          | w, None -> (acc_words @ [ w ], acc_cited_posts) )
+        ([], []) words
+    in
+    let line = String.concat (String.make 1 ' ') words in
+    (line, cited_posts)
+  in
+
+  let comment = String.trim comment in
+  let comment = Dream.html_escape comment in
+  let lines = String.split_on_char '\n' comment in
+  let lines, cited_posts =
+    List.fold_left
+      (fun (acc_lines, acc_cited_posts) l ->
+        let line, cited_posts = handle_line l in
+        (acc_lines @ [ line ], acc_cited_posts @ cited_posts) )
+      ([], []) lines
+  in
+  (*insert <br>*)
+  let comment = String.concat "\n<br>" lines in
+  (* remove duplicate cited_id *)
+  let cited_posts = List.sort_uniq (fun _ _ -> 1) cited_posts in
   (comment, cited_posts)
 
 let view_post post_id =

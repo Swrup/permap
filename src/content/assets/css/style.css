@@ -49,3 +49,6 @@ blockquote.blockquote {
   padding: 5px 5px 5px 5px;
 }
 
+.quote {
+  color: green;
+}
