@@ -298,11 +298,11 @@ let parse_comment comment =
       List.fold_left
         (fun (acc_words, acc_cited_posts) w ->
           match handle_word w with
-          | w, Some cited_id ->
-            (acc_words @ [ w ], acc_cited_posts @ [ cited_id ])
-          | w, None -> (acc_words @ [ w ], acc_cited_posts) )
+          | w, Some cited_id -> (w :: acc_words, cited_id :: acc_cited_posts)
+          | w, None -> (w :: acc_words, acc_cited_posts) )
         ([], []) words
     in
+    let words = List.rev words in
     let line = String.concat (String.make 1 ' ') words in
     (line, cited_posts)
   in
@@ -314,9 +314,10 @@ let parse_comment comment =
     List.fold_left
       (fun (acc_lines, acc_cited_posts) l ->
         let line, cited_posts = handle_line l in
-        (acc_lines @ [ line ], acc_cited_posts @ cited_posts) )
+        (line :: acc_lines, cited_posts @ acc_cited_posts) )
       ([], []) lines
   in
+  let lines = List.rev lines in
   (*insert <br>*)
   let comment = String.concat "\n<br>" lines in
   (* remove duplicate cited_id *)
