@@ -11,9 +11,6 @@ let db = Filename.concat db_root "permap.db"
 
 let random_state = Random.State.make_self_init ()
 
-let with_db ?mode ?mutex ?cache ?vfs ?timeout f =
-  Sqlite3_utils.with_db ?mode ?mutex ?cache ?vfs ?timeout db f
-
 module Db =
 ( val Caqti_blocking.connect (Uri.of_string ("sqlite3://" ^ db))
       |> Caqti_blocking.or_fail )
