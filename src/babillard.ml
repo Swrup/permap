@@ -273,9 +273,6 @@ let () =
 (* TODO: Is this safe? *)
 (*TODO fix bad link if post in other thread*)
 let parse_comment comment =
-  let comment = String.trim comment in
-  let comment = Dream.html_escape comment in
-
   let handle_word w =
     let trim_w = String.trim w in
     (* '>' is '&gt;' after html_escape *)
@@ -320,6 +317,7 @@ let parse_comment comment =
     (line, cited_posts)
   in
 
+  let comment = String.trim comment in
   let lines = String.split_on_char '\n' comment in
   let lines, cited_posts =
     List.fold_left
@@ -527,12 +525,17 @@ let upload_post post =
     Ok post_id
 
 let make_reply ~comment ?image ~tags ~parent_id nick =
-  if String.length comment > 10000 then
+  let comment = Dream.html_escape comment in
+  let tags = Dream.html_escape tags in
+  if Option.is_none (Uuidm.of_string parent_id) then
+    Error "invalid thread id"
+  else if String.length comment > 10000 then
     Error "invalid comment"
   else
     let image =
       match image with
-      | Some (Some image_name, image_content) -> Some (image_name, image_content)
+      | Some (Some image_name, image_content) ->
+        Some (Dream.html_escape image_name, image_content)
       | Some (None, image_content) ->
         (* make up random name if no name was given *)
         let image_name = Uuidm.to_string (Uuidm.v4_gen random_state ()) in
@@ -570,12 +573,16 @@ let make_reply ~comment ?image ~tags ~parent_id nick =
       upload_post reply
 
 let make_op ~comment ~image ~tags ~subject ~lat ~lng ~board nick =
+  let comment = Dream.html_escape comment in
+  let tags = Dream.html_escape tags in
+  let subject = Dream.html_escape subject in
   if String.length comment > 10000 then
     Error "invalid comment"
   else
     let image =
       match image with
-      | Some image_name, image_content -> (image_name, image_content)
+      | Some image_name, image_content ->
+        (Dream.html_escape image_name, image_content)
       | None, image_content ->
         (* make up random name if no name was given *)
         let image_name = Uuidm.to_string (Uuidm.v4_gen random_state ()) in

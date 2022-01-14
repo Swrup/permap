@@ -92,7 +92,7 @@ let register ~email ~nick ~password =
   let valid_nick =
     String.length nick < 64
     && String.length nick > 0
-    && String.escaped nick = nick
+    && Dream.html_escape nick = nick
   in
 
   let valid_email =
@@ -165,8 +165,8 @@ let profile request =
   | Some nick -> Format.sprintf "Hello %s !" nick
 
 let update_bio bio nick =
-  let valid = true in
-  (* TODO check bio len and FORBIDEN WORDS *)
+  let bio = Dream.html_escape bio in
+  let valid = String.length bio < 10000 in
   if not valid then
     Error "Not biologic"
   else
@@ -201,8 +201,7 @@ let upload_avatar files nick =
   match files with
   | [] -> Error "No file provided"
   | [ (_, content) ] -> (
-    let valid = true in
-    if not valid then
+    if not (is_valid_image content) then
       Error "Invalid image"
     else
       let res = Db.exec Q.upload_avatar (content, nick) in
