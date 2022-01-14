@@ -79,7 +79,7 @@ module Marker = struct
       Jv.to_string
         (Jv.call board_div "getAttribute" [| Jv.of_string "boardvalue" |])
     in
-    let link = "/" ^ board ^ "/" ^ thread_id in
+    let link = Format.sprintf "/%s/%s" board thread_id in
     ignore @@ Jv.set thread_link "href" (Jv.of_string link);
     ignore @@ Jv.set thread_link "innerText" (Jv.of_string "[View Thread]");
     ()
@@ -118,9 +118,8 @@ module Marker = struct
         (Jv.call board_div "getAttribute" [| Jv.of_string "boardvalue" |])
     in
     let window = Jv.get Jv.global "window" in
-    let fetchfutur =
-      Jv.call window "fetch" [| Jv.of_string ("/" ^ board ^ "/markers") |]
-    in
+    let link = Jv.of_string (Format.sprintf "/%s/markers" board) in
+    let fetchfutur = Jv.call window "fetch" [| link |] in
     ignore @@ Jv.call fetchfutur "then" [| Jv.repr markers_handle_response |];
     ()
 end

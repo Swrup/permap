@@ -141,16 +141,10 @@ let post_image request =
 let plants_get request = render_unsafe (Plants_page.f request) request
 
 let markers ~board request =
-  (*TODO should be in babillard*)
-  let marker_list = Babillard.marker_list board in
-  match marker_list with
-  | Ok marker_list ->
-    let json =
-      {| [ |}
-      ^ String.concat "," (List.map Babillard.marker_to_geojson marker_list)
-      ^ "]"
-    in
-    Dream.respond ~headers:[ ("Content-Type", "application/json") ] json
+  let markers = Babillard.get_markers board in
+  match markers with
+  | Ok markers ->
+    Dream.respond ~headers:[ ("Content-Type", "application/json") ] markers
   | Error e -> render_unsafe e request
 
 let babillard_get request = render_unsafe (Babillard_page.f request) request
@@ -193,9 +187,7 @@ let newthread_post ~board request =
           with
           | Ok thread_id ->
             let adress =
-              Format.sprintf "/%s/%s"
-                (Babillard.string_of_board board)
-                thread_id
+              Format.asprintf "/%a/%s" Babillard.pp_board board thread_id
             in
             Dream.respond ~status:`See_Other ~headers:[ ("Location", adress) ]
               "Your thread was posted on the babillard!"

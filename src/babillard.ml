@@ -10,14 +10,14 @@ let int_of_board = function
   | Plants -> 0
   | Babillard -> 1
 
-let string_of_board = function
-  | Plants -> "plants"
-  | Babillard -> "babillard"
+let pp_board fmt = function
+  | Plants -> Format.fprintf fmt "plants"
+  | Babillard -> Format.fprintf fmt "babillard"
 
 let board_of_int = function
   | 0 -> Plants
   | 1 -> Babillard
-  | _ -> assert false
+  | _ -> raise (Invalid_argument "board_of_int")
 
 type op =
   { id : string
@@ -269,6 +269,9 @@ let () =
 (* TODO: Is this safe? *)
 (*TODO fix bad link if post in other thread*)
 let parse_comment comment =
+  let comment = String.trim comment in
+  let comment = Dream.html_escape comment in
+
   let handle_word w =
     let trim_w = String.trim w in
     (* '>' is '&gt;' after html_escape *)
@@ -303,12 +306,16 @@ let parse_comment comment =
         ([], []) words
     in
     let words = List.rev words in
-    let line = String.concat (String.make 1 ' ') words in
+    let line =
+      Format.asprintf "%a"
+        (Format.pp_print_list
+           ~pp_sep:(fun fmt () -> Format.fprintf fmt " ")
+           Format.pp_print_string )
+        words
+    in
     (line, cited_posts)
   in
 
-  let comment = String.trim comment in
-  let comment = Dream.html_escape comment in
   let lines = String.split_on_char '\n' comment in
   let lines, cited_posts =
     List.fold_left
@@ -319,7 +326,13 @@ let parse_comment comment =
   in
   let lines = List.rev lines in
   (*insert <br>*)
-  let comment = String.concat "\n<br>" lines in
+  let comment =
+    Format.asprintf "%a"
+      (Format.pp_print_list
+         ~pp_sep:(fun fmt () -> Format.fprintf fmt "\n<br>")
+         Format.pp_print_string )
+      lines
+  in
   (* remove duplicate cited_id *)
   let cited_posts = List.sort_uniq (fun _ _ -> 1) cited_posts in
   (comment, cited_posts)
@@ -354,16 +367,16 @@ let view_post post_id =
         image_name post_id post_id
     | None -> ""
   in
-  let replies_view =
-    {|<div class="repliesLink">|}
-    ^ String.concat " "
-        (List.map
-           (fun reply_id ->
-             Format.sprintf {|<a class="replyLink" href="#%s">>>%s</a>|}
-               reply_id reply_id )
-           replies )
-    ^ {|</div> |}
+
+  let pp_print_reply fmt reply =
+    Format.fprintf fmt {|<a class="replyLink" href="#%s">>>%s</a>|} reply reply
   in
+  let pp_print_replies =
+    Format.asprintf {|<div class="repliesLink">%a</div> |}
+      (Format.pp_print_list ~pp_sep:Format.pp_print_space pp_print_reply)
+  in
+
+  let replies_view = pp_print_replies replies in
   (* TODO how to display date, I should probably render everything on the client*)
   let post_info_view =
     Format.sprintf
@@ -396,11 +409,8 @@ let view_post post_id =
 
 let view_thread thread_id =
   let** _ = Db.find_opt Q.is_thread thread_id in
-  let* thread_posts =
-    Db.fold Q.get_thread_posts (fun post_id acc -> post_id :: acc) thread_id []
-  in
+  let* thread_posts = Db.fold Q.get_thread_posts List.cons thread_id [] in
   (*order by date *)
-  (*TODO do this more clean *)
   let dates =
     List.map (fun post_id -> Db.find Q.get_post_date post_id) thread_posts
   in
@@ -408,13 +418,7 @@ let view_thread thread_id =
   | Some (Error e) -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
   | Some (Ok _) -> assert false
   | None ->
-    let dates =
-      List.map
-        (function
-          | Ok date -> date
-          | Error _ -> assert false )
-        dates
-    in
+    let dates = List.map Result.get_ok dates in
     let posts_dates = List.combine thread_posts dates in
     let sorted_posts_dates =
       List.sort (fun (_, a) (_, b) -> compare a b) posts_dates
@@ -423,13 +427,16 @@ let view_thread thread_id =
     let posts, _ = List.split sorted_posts_dates in
     let view_posts = List.map view_post posts in
     let view_posts =
-      List.map
-        (function
-          | Ok view -> view
-          | Error _ -> assert false )
-        (List.filter Result.is_ok view_posts)
+      List.map Result.get_ok (List.filter Result.is_ok view_posts)
     in
-    Ok (String.concat "\n\r" view_posts)
+    let view_posts =
+      Format.asprintf "%a"
+        (Format.pp_print_list
+           ~pp_sep:(fun fmt () -> Format.fprintf fmt "\r\n")
+           Format.pp_print_string )
+        view_posts
+    in
+    Ok view_posts
 
 let upload_post post =
   let post_id, parent_id, date, nick, comment, image, tags, citations, op_data =
@@ -597,44 +604,24 @@ let make_op ~comment ~image ~tags ~subject ~lat ~lng ~board nick =
         in
         upload_post op
 
-(* TODO make this return geojson directly *)
-let marker_list board =
+let get_markers board =
   let* thread_id_list =
-    Db.fold Q.list_threads
-      (fun thread_id acc -> thread_id :: acc)
-      (int_of_board board) []
+    Db.fold Q.list_threads List.cons (int_of_board board) []
   in
   let markers_res =
     List.map
       (fun thread_id ->
-        match Db.find_opt Q.get_post_gps thread_id with
-        | Ok (Some (lat, lng)) ->
-          let content =
-            match view_post thread_id with
-            | Ok s -> s
-            | Error e -> e
-          in
-          Ok (lat, lng, content, thread_id)
-        | Ok None -> Error "latlng not found"
-        | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
-        )
+        let** lat, lng = Db.find_opt Q.get_post_gps thread_id in
+        match view_post thread_id with
+        | Ok content -> Ok (lat, lng, content, thread_id)
+        | Error e -> Error e )
       thread_id_list
   in
-  let markers =
-    List.map
-      (function
-        | Ok res -> res
-        | Error _ -> assert false )
-      (List.filter Result.is_ok markers_res)
-  in
-  Ok markers
+  let markers = List.map Result.get_ok (List.filter Result.is_ok markers_res) in
 
-let marker_to_geojson marker =
-  match marker with
-  | lat, lng, content, thread_id ->
-    Format.sprintf
-      {|
-{
+  let pp_marker fmt (lat, lng, content, thread_id) =
+    Format.fprintf fmt
+      {|{
   "type": "Feature",
   "geometry": {
     "type": "Point",
@@ -643,12 +630,19 @@ let marker_to_geojson marker =
   "properties": {
     "content": "%s",
     "thread_id": "%s"
-  }
-} 
-|}
+  }}|}
       (* geojson use lng lat, and not lat lng*)
       (Float.to_string lng)
       (Float.to_string lat) (String.escaped content) thread_id
+  in
+  let markers =
+    Format.asprintf "[%a]"
+      (Format.pp_print_list
+         ~pp_sep:(fun fmt () -> Format.fprintf fmt ",")
+         pp_marker )
+      markers
+  in
+  Ok markers
 
 let get_post_image post_id =
   let** content = Db.find_opt Q.get_post_image_content post_id in
