@@ -8,6 +8,19 @@ type t =
   ; avatar : string
   }
 
+(* ('a option, string) result *)
+let ( let** ) o f =
+  match o with
+  | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+  | Ok None -> Error "db error"
+  | Ok (Some x) -> f x
+
+(* ('a, string) result *)
+let ( let* ) o f =
+  match o with
+  | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+  | Ok x -> f x
+
 module Q = struct
   let create_user_table =
     Caqti_request.exec Caqti_type.unit
@@ -71,21 +84,15 @@ let () =
     Dream.warning (fun log -> log "can't create table")
 
 let login ~nick ~password request =
-  let good_password = Db.find_opt Q.get_password nick in
-  match good_password with
-  | Ok foo -> (
-    match foo with
-    | Some good_password ->
-      if Bcrypt.verify password (Bcrypt.hash_of_string good_password) then
-        let _ =
-          let%lwt () = Dream.invalidate_session request in
-          Dream.put_session "nick" nick request
-        in
-        Ok ()
-      else
-        Error "wrong password"
-    | None -> Error (Format.sprintf "user `%s` doesn't exist" nick) )
-  | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+  let** good_password = Db.find_opt Q.get_password nick in
+  if Bcrypt.verify password (Bcrypt.hash_of_string good_password) then
+    let _ =
+      let%lwt () = Dream.invalidate_session request in
+      Dream.put_session "nick" nick request
+    in
+    Ok ()
+  else
+    Error "wrong password"
 
 let register ~email ~nick ~password =
   (* TODO: remove bad characters (e.g. delthas) *)
@@ -113,51 +120,32 @@ let register ~email ~nick ~password =
   if not valid then
     Error "Something is wrong"
   else
-    let unique = Db.find_opt Q.is_already_user (nick, email) in
-    match unique with
-    | Ok unique -> (
-      match unique with
-      | Some nb -> (
-        match nb with
-        | 0 -> (
-          let res =
-            Db.exec Q.inser_new_user (nick, password, email, ("", ""))
-          in
-          match res with
-          | Ok res -> Ok res
-          | Error e ->
-            Error (Format.sprintf "db error: %s" (Caqti_error.show e)) )
-        | _ -> Error "nick or email already exists" )
-      | None -> Error "db error" )
-    | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+    let** nb = Db.find_opt Q.is_already_user (nick, email) in
+    match nb with
+    | 0 ->
+      let* () = Db.exec Q.inser_new_user (nick, password, email, ("", "")) in
+      Ok ()
+    | _ -> Error "nick or email already exists"
 
 let list () =
-  let users = Db.fold Q.list_nicks (fun nick acc -> nick :: acc) () [] in
-  match users with
-  | Ok users ->
-    Format.asprintf "<ul>%a</ul>"
-      (Format.pp_print_list (fun fmt -> function
-         | s -> Format.fprintf fmt {|<li><a href="/user/%s">%s</a></li>|} s s )
-      )
-      users
-  | Error e -> Format.sprintf "db error: %s" (Caqti_error.show e)
+  let* users = Db.fold Q.list_nicks (fun nick acc -> nick :: acc) () [] in
+  Ok
+    (Format.asprintf "<ul>%a</ul>"
+       (Format.pp_print_list (fun fmt -> function
+          | s -> Format.fprintf fmt {|<li><a href="/user/%s">%s</a></li>|} s s )
+       )
+       users )
 
 let public_profile request =
   let nick = Dream.param "user" request in
-  let user = Db.find_opt Q.get_user nick in
-  match user with
-  | Ok user -> (
-    match user with
-    | Some (nick, password, email, (bio, _)) ->
-      let user_info =
-        Format.sprintf
-          {|nick = `%s`; password = `%s`; email = `%s`; bio = '%s';
+  let** nick, password, email, (bio, _) = Db.find_opt Q.get_user nick in
+  let user_info =
+    Format.sprintf
+      {|nick = `%s`; password = `%s`; email = `%s`; bio = '%s';
     <img src="/user/%s/avatar" class="img-thumbnail" alt="Your avatar picture">|}
-          nick password email (Dream.html_escape bio) nick
-      in
-      user_info
-    | None -> "incoherent db answer" )
-  | Error e -> Format.sprintf "db error: %s" (Caqti_error.show e)
+      nick password email (Dream.html_escape bio) nick
+  in
+  Ok user_info
 
 let profile request =
   match Dream.session "nick" request with
@@ -170,42 +158,27 @@ let update_bio bio nick =
   if not valid then
     Error "Not biologic"
   else
-    let res = Db.exec Q.update_bio (bio, nick) in
-    match res with
-    | Ok _ -> Ok ()
-    | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+    let* () = Db.exec Q.update_bio (bio, nick) in
+    Ok ()
 
 let get_bio nick =
-  let res = Db.find_opt Q.get_bio nick in
-  match res with
-  | Ok bio -> (
-    match bio with
-    | Some bio -> Ok bio
-    | None -> Error "incoherent db result" )
-  | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+  let** bio = Db.find_opt Q.get_bio nick in
+  Ok bio
 
 let get_avatar nick =
-  let res = Db.find_opt Q.get_avatar nick in
-  match res with
-  | Ok avatar -> (
-    match avatar with
-    | Some avatar ->
-      if String.length avatar = 0 then
-        Ok None
-      else
-        Ok (Some avatar)
-    | None -> Error "db error:" )
-  | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+  let** avatar = Db.find_opt Q.get_avatar nick in
+  if String.length avatar = 0 then
+    Ok None
+  else
+    Ok (Some avatar)
 
 let upload_avatar files nick =
   match files with
   | [] -> Error "No file provided"
-  | [ (_, content) ] -> (
+  | [ (_, content) ] ->
     if not (is_valid_image content) then
       Error "Invalid image"
     else
-      let res = Db.exec Q.upload_avatar (content, nick) in
-      match res with
-      | Ok _ -> Ok ()
-      | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e)) )
+      let* () = Db.exec Q.upload_avatar (content, nick) in
+      Ok ()
   | _files -> Error "More than one file provided"

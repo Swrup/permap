@@ -54,7 +54,7 @@ type post =
 let ( let** ) o f =
   match o with
   | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
-  | Ok None -> Error (Format.sprintf "db error: value not found")
+  | Ok None -> Error "db error"
   | Ok (Some x) -> f x
 
 (* ('a, string) result *)

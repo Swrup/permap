@@ -62,9 +62,19 @@ let login_post request =
     render_unsafe (Login.f ~nick ~password request) request
   | _ -> assert false
 
-let user request = render_unsafe (User.list ()) request
+let user request =
+  render_unsafe
+    ( match User.list () with
+    | Ok s -> s
+    | Error _ -> "" )
+    request
 
-let user_profile request = render_unsafe (User.public_profile request) request
+let user_profile request =
+  render_unsafe
+    ( match User.public_profile request with
+    | Ok s -> s
+    | Error e -> e )
+    request
 
 let logout request =
   let _ = Dream.invalidate_session request in
@@ -87,13 +97,13 @@ let profile_post request =
   | None -> render_unsafe "Not logged in" request
   | Some nick -> (
     match%lwt Dream.form request with
-    | `Ok [ ("bio", bio) ] ->
-      let res =
-        match User.update_bio bio nick with
-        | Ok () -> "Bio updated!"
-        | Error e -> e
-      in
-      render_unsafe res request
+    | `Ok [ ("bio", bio) ] -> (
+      match User.update_bio bio nick with
+      | Ok () ->
+        Dream.respond ~status:`See_Other
+          ~headers:[ ("Location", "/profile") ]
+          "Your bio was updated!"
+      | Error e -> render_unsafe e request )
     | `Ok _
     | `Many_tokens _
     | `Missing_token _
@@ -102,13 +112,13 @@ let profile_post request =
     | `Expired _
     | `Wrong_content_type -> (
       match%lwt Dream.multipart request with
-      | `Ok [ ("file", file) ] ->
-        let res =
-          match User.upload_avatar file nick with
-          | Ok () -> "Avatar was uploaded!"
-          | Error e -> e
-        in
-        render_unsafe res request
+      | `Ok [ ("file", file) ] -> (
+        match User.upload_avatar file nick with
+        | Ok () ->
+          Dream.respond ~status:`See_Other
+            ~headers:[ ("Location", "/profile") ]
+            "Your avatar was updated!"
+        | Error e -> render_unsafe e request )
       | `Ok _ -> Dream.empty `Bad_Request
       | `Expired _
       | `Many_tokens _
@@ -190,7 +200,7 @@ let newthread_post ~board request =
               Format.asprintf "/%a/%s" Babillard.pp_board board thread_id
             in
             Dream.respond ~status:`See_Other ~headers:[ ("Location", adress) ]
-              "Your thread was posted on the babillard!"
+              "Your thread was posted!"
           | Error e -> render_unsafe e request ) ) )
     | `Ok _ -> Dream.empty `Bad_Request
     | `Expired _
@@ -244,7 +254,7 @@ let reply_post request =
       | Ok post_id ->
         let adress = Format.sprintf "/babillard/%s#%s" parent_id post_id in
         Dream.respond ~status:`See_Other ~headers:[ ("Location", adress) ]
-          "Your thread was posted on the babillard!"
+          "Your reply was posted!"
       | Error e -> render_unsafe e request )
     | `Ok _ -> Dream.empty `Bad_Request
     | `Expired _
