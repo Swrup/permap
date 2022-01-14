@@ -221,6 +221,10 @@ module Q = struct
     Caqti_request.collect Caqti_type.string Caqti_type.string
       "SELECT post_id FROM threads WHERE thread_id=?;"
 
+  let count_thread_posts =
+    Caqti_request.find Caqti_type.string Caqti_type.int
+      "SELECT COUNT(post_id) FROM threads WHERE thread_id=?;"
+
   (* TODO return bool *)
   let is_thread =
     Caqti_request.find_opt Caqti_type.string Caqti_type.string
@@ -329,7 +333,7 @@ let parse_comment comment =
   let comment =
     Format.asprintf "%a"
       (Format.pp_print_list
-         ~pp_sep:(fun fmt () -> Format.fprintf fmt "\n<br>")
+         ~pp_sep:(fun fmt () -> Format.fprintf fmt "@.<br>")
          Format.pp_print_string )
       lines
   in
@@ -337,7 +341,7 @@ let parse_comment comment =
   let cited_posts = List.sort_uniq (fun _ _ -> 1) cited_posts in
   (comment, cited_posts)
 
-let view_post post_id =
+let view_post ?is_thread_preview post_id =
   let* nick = Db.find Q.get_post_nick post_id in
   let* comment = Db.find Q.get_post_comment post_id in
   let* date = Db.find Q.get_post_date post_id in
@@ -376,7 +380,16 @@ let view_post post_id =
       (Format.pp_print_list ~pp_sep:Format.pp_print_space pp_print_reply)
   in
 
-  let replies_view = pp_print_replies replies in
+  let replies_view =
+    match is_thread_preview with
+    | None -> pp_print_replies replies
+    | Some () -> (
+      let res_nb = Db.find Q.count_thread_posts post_id in
+      match res_nb with
+      | Error _ -> ""
+      | Ok ((0 | 1) as nb) -> Format.sprintf "%d reply" (nb - 1)
+      | Ok nb -> Format.sprintf "%d replies" (nb - 1) )
+  in
   (* TODO how to display date, I should probably render everything on the client*)
   let post_info_view =
     Format.sprintf
@@ -406,6 +419,8 @@ let view_post post_id =
       post_id post_info_view image_view comment
   in
   Ok post_view
+
+let preview_thread thread_id = view_post ~is_thread_preview:() thread_id
 
 let view_thread thread_id =
   let** _ = Db.find_opt Q.is_thread thread_id in
@@ -612,7 +627,7 @@ let get_markers board =
     List.map
       (fun thread_id ->
         let** lat, lng = Db.find_opt Q.get_post_gps thread_id in
-        match view_post thread_id with
+        match preview_thread thread_id with
         | Ok content -> Ok (lat, lng, content, thread_id)
         | Error e -> Error e )
       thread_id_list
