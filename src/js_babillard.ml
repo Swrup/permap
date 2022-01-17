@@ -46,25 +46,6 @@ module Leaflet = struct
     log "adding tile layer@.";
     let _map : Jv.t = Jv.call tile_layer "addTo" [| map |] in
     ()
-
-  let on_click e =
-    log "on_click@.";
-
-    let lat_lng = Jv.get e "latlng" in
-    ignore @@ Jv.call popup "setLatLng" [| lat_lng |];
-    ignore @@ Jv.call popup "setContent" [| Jv.of_string "euujjj" |];
-    ignore @@ Jv.call popup "openOn" [| map |];
-
-    let lat = Jv.get lat_lng "lat" in
-    let lng = Jv.get lat_lng "lng" in
-    let lat_input = Jv.get Jv.global "lat_input" in
-    let lng_input = Jv.get Jv.global "lng_input" in
-    ignore @@ Jv.call lat_input "setAttribute" [| Jv.of_string "value"; lat |];
-    ignore @@ Jv.call lng_input "setAttribute" [| Jv.of_string "value"; lng |]
-
-  (*add on_click callback to map*)
-  let () =
-    ignore @@ Jv.call map "on" [| Jv.of_string "click"; Jv.repr on_click |]
 end
 
 module Marker = struct
