@@ -2,20 +2,15 @@ open Db
 
 exception Invalid_post of string
 
-type board =
-  | Plants
-  | Babillard
+type board = Babillard
 
 let int_of_board = function
-  | Plants -> 0
   | Babillard -> 1
 
 let pp_board fmt = function
-  | Plants -> Format.fprintf fmt "plants"
   | Babillard -> Format.fprintf fmt "babillard"
 
 let board_of_int = function
-  | 0 -> Plants
   | 1 -> Babillard
   | _ -> raise (Invalid_argument "board_of_int")
 

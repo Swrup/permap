@@ -1,6 +1,7 @@
-let f request =
+let f ~board request =
+%let board = Format.asprintf "%a" Babillard.pp_board board in
 <script type="text/javascript" src="/assets/js/js_babillard.js" defer="defer"></script>
-<div id="board" data-board="babillard">
+<div id="board" data-board=<%s board %> >
 <%s  Format.sprintf "Babillard is love" %>
 </div>
 <div class="row mb-3">
@@ -9,7 +10,8 @@ let f request =
 % | None ->
 
 % | Some _nick ->
-<a href="/babillard/new_thread">[New Thread]</a>
+%let url = Format.sprintf "/%s/new_thread" board in
+<a href=<%s url %>>[New Thread]</a>
 % end;
 <div id="map"></div>
       </div>

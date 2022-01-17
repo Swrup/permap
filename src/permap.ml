@@ -148,8 +148,6 @@ let post_image request =
   | Ok image -> Dream.respond ~headers:[ ("Content-Type", "image") ] image
   | Error _ -> Dream.empty `Not_Found
 
-let plants_get request = render_unsafe (Plants_page.f request) request
-
 let markers ~board request =
   let markers = Babillard.get_markers board in
   match markers with
@@ -157,7 +155,8 @@ let markers ~board request =
     Dream.respond ~headers:[ ("Content-Type", "application/json") ] markers
   | Error e -> render_unsafe e request
 
-let babillard_get request = render_unsafe (Babillard_page.f request) request
+let babillard_get ~board request =
+  render_unsafe (Babillard_page.f ~board request) request
 
 let newthread_get ~board request =
   render_unsafe (Newthread_page.f ~board request) request
@@ -283,15 +282,9 @@ let () =
        ; Dream.get "/profile" profile_get
        ; Dream.post "/profile" profile_post
        ; Dream.get "/thread_view/:thread_id" thread_view
-       ; Dream.get "/plants/markers" (markers ~board:Plants)
        ; Dream.get "/babillard/markers" (markers ~board:Babillard)
-       ; Dream.get "/plants" plants_get
-       ; Dream.get "/plants/new_thread" (newthread_get ~board:Plants)
-       ; Dream.post "/plants/new_thread" (newthread_post ~board:Plants)
-       ; Dream.get "/plants/:thread_id" thread_get (*todo, bad names ^^*)
-       ; Dream.post "/plants/:thread_id" reply_post
        ; Dream.get "/post_pic/:post_id" post_image
-       ; Dream.get "/babillard" babillard_get
+       ; Dream.get "/babillard" (babillard_get ~board:Babillard)
        ; Dream.get "/babillard/new_thread" (newthread_get ~board:Babillard)
        ; Dream.post "/babillard/new_thread" (newthread_post ~board:Babillard)
        ; Dream.get "/babillard/:thread_id" thread_get

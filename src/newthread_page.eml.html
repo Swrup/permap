@@ -1,11 +1,12 @@
 let f ~board request =
-%let url = Format.asprintf "/%a/new_thread" Babillard.pp_board board in
+%let board = Format.asprintf "%a" Babillard.pp_board board in
+%let url = Format.sprintf "/%s/new_thread" board in
 % begin match Dream.session "nick" request with
 % | None ->
 Login to make a new thread.
 % | Some _nick ->
 <script type="text/javascript" src="/assets/js/js_newthread.js" defer="defer"></script>
-<div id="board" data-board="babillard">Click the map to make a new thread:</div>
+<div id="board" data-board=<%s board %> >Click the map to make a new thread:</div>
 <div class="row mb-3">
     <div class="col-md-6">
         <div id="map"></div>
