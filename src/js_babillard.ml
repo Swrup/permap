@@ -68,17 +68,17 @@ module Leaflet = struct
 end
 
 module Marker = struct
+  let board =
+    let board_div = Jv.get Jv.global "board" in
+    Jv.to_string
+      (Jv.call board_div "getAttribute" [| Jv.of_string "data-board" |])
+
   let marker_on_click thread_preview thread_id _e =
     log "marker_on_click@.";
     let thread_id = Jv.to_string thread_id in
     let thread_preview_div = Jv.get Jv.global "thread_preview_div" in
     ignore @@ Jv.set thread_preview_div "innerHTML" thread_preview;
     let thread_link = Jv.get Jv.global "thread_link" in
-    let board_div = Jv.get Jv.global "board" in
-    let board =
-      Jv.to_string
-        (Jv.call board_div "getAttribute" [| Jv.of_string "boardvalue" |])
-    in
     let link = Format.sprintf "/%s/%s" board thread_id in
     ignore @@ Jv.set thread_link "href" (Jv.of_string link);
     ignore @@ Jv.set thread_link "innerText" (Jv.of_string "[View Thread]");
@@ -112,11 +112,6 @@ module Marker = struct
 
   let () =
     log "fetch thread geojson@.";
-    let board_div = Jv.get Jv.global "board" in
-    let board =
-      Jv.to_string
-        (Jv.call board_div "getAttribute" [| Jv.of_string "boardvalue" |])
-    in
     let window = Jv.get Jv.global "window" in
     let link = Jv.of_string (Format.sprintf "/%s/markers" board) in
     let fetchfutur = Jv.call window "fetch" [| link |] in
