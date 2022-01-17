@@ -199,7 +199,8 @@ let newthread_post ~board request =
             let adress =
               Format.asprintf "/%a/%s" Babillard.pp_board board thread_id
             in
-            Dream.respond ~status:`See_Other ~headers:[ ("Location", adress) ]
+            Dream.respond ~status:`See_Other
+              ~headers:[ ("Location", adress) ]
               "Your thread was posted!"
           | Error e -> render_unsafe e request ) ) )
     | `Ok _ -> Dream.empty `Bad_Request
@@ -253,7 +254,8 @@ let reply_post request =
       match res with
       | Ok post_id ->
         let adress = Format.sprintf "/babillard/%s#%s" parent_id post_id in
-        Dream.respond ~status:`See_Other ~headers:[ ("Location", adress) ]
+        Dream.respond ~status:`See_Other
+          ~headers:[ ("Location", adress) ]
           "Your reply was posted!"
       | Error e -> render_unsafe e request )
     | `Ok _ -> Dream.empty `Bad_Request
