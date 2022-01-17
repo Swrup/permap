@@ -17,6 +17,15 @@
    (cat ../../../js_babillard.bc.js))))
 
 (rule
+ (target js_newthread.js)
+ (deps
+  (file ../../../js_newthread.bc.js))
+ (action
+  (with-stdout-to
+   %{target}
+   (cat ../../../js_newthread.bc.js))))
+
+(rule
  (target js_thread.js)
  (deps
   (file ../../../js_thread.bc.js))

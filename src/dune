@@ -51,6 +51,16 @@
   (pps js_of_ocaml-ppx)))
 
 (executable
+ (name js_newthread)
+ (modules js_newthread)
+ (libraries js_of_ocaml brr)
+ (modes js)
+ (js_of_ocaml
+  (javascript_files leaflet/leaflet.js))
+ (preprocess
+  (pps js_of_ocaml-ppx)))
+
+(executable
  (name js_thread)
  (modules js_thread)
  (libraries js_of_ocaml brr)
@@ -114,6 +124,7 @@
   (source_tree content)
   (file content/assets/js/js_plant_map.js)
   (file content/assets/js/js_babillard.js)
+  (file content/assets/js/js_newthread.js)
   (file content/assets/js/js_thread.js))
  (action
   (with-stdout-to
