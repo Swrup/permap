@@ -44,9 +44,14 @@ blockquote.blockquote {
   display: block;
 }
 
-.postImage {
+.postImageContainer {
   float: left;
   padding: 5px 5px 5px 5px;
+}
+
+.postImage {
+  max-width: 250px;
+  height: auto;
 }
 
 .quote {

@@ -355,9 +355,9 @@ let view_post ?is_thread_preview post_id =
       (*TODO thumbnails *)
       Format.sprintf
         {|
-    <div class="postImage">
+    <div class="postImageContainer">
         <a title="%s" href="/post_pic/%s">
-        <img src="/post_pic/%s" style="width:200px;height:200px;" loading="lazy">
+        <img class= "postImage" src="/post_pic/%s" loading="lazy">
         </a>
     </div> 
 |}
