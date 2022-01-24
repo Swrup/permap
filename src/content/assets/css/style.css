@@ -54,6 +54,11 @@ blockquote.blockquote {
   height: auto;
 }
 
+.postImageBig {
+  max-width: 750px;
+  height: auto;
+}
+
 .quote {
   color: green;
 }

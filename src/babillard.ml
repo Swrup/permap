@@ -356,7 +356,7 @@ let view_post ?is_thread_preview post_id =
       Format.sprintf
         {|
     <div class="postImageContainer">
-        <a title="%s" href="/post_pic/%s">
+        <a title="%s" href="/post_pic/%s" target="_blank">
         <img class= "postImage" src="/post_pic/%s" loading="lazy">
         </a>
     </div> 
