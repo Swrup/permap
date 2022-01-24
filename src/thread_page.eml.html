@@ -5,18 +5,18 @@ let f thread_view thread_id request =
 % | None ->
 
 % | Some _ ->
-      <div class="mb-3">
+    <div class="postForm">
         <%s! Dream.form_tag ~action:( Format.sprintf "/reply/%s" thread_id)
         ~enctype:`Multipart_form_data request %>
 
-        <label for="replyComment" id="replyCommentLabel" class="form-label">Comment</label>
+        <label for="replyComment" id="replyCommentLabel" class="form-label">Comment:</label>
         <textarea name="replyComment" type="text" class="form-control" id="replyComment" aria-labelledby="replyCommentLabel"></textarea>
 
-        <label for="tags" id="tagsLabel" class="form-label">Tags</label>
+        <label for="tags" id="tagsLabel" class="form-label">Tags:</label>
         <input name="tags" type="text" class="form-control" id="tags" aria-labelledby="tagsLabel"></input>
 
-        <input id="file" name="file" aria-describedby="fileHelp" type="file">
-        <div id="fileHelp" class="form-text">Add a picture to your post</div>
+        <label for="file" id="fileLabel" class="form-label">Picture:</label>
+        <input id="file" name="file" aria-describedby="fileLabel" type="file" accept="image/*">
       <button type="submit" class="btn btn-primary">Reply</button>
       </div>
     </form>

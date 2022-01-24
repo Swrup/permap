@@ -62,3 +62,12 @@ blockquote.blockquote {
 .quote {
   color: green;
 }
+
+.postForm {
+  background-color: #FCE4EC;
+  margin: 5px 5px 5px 5px;
+  border: 2px solid #FFB300;
+  padding: 2px;
+  display:table;
+  width: 500px;
+}
