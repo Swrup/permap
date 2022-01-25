@@ -12,7 +12,7 @@ Login to make a new thread.
         <div id="map"></div>
     </div>
 
-    <div class="col-md-6" id="newthread-form" style="visibility:hidden">
+    <div class="col-md-6" id="newthread-form">
     <div class="postForm">
 <%s! Dream.form_tag ~action:url ~enctype:`Multipart_form_data request %>
         <input type="hidden" id="lat_input" name="lat_input">
@@ -29,6 +29,9 @@ Login to make a new thread.
 
         <label for="file" id="fileLabel" class="form-label">Picture:</label>
         <input id="file" name="file" aria-describedby="fileLabel" type="file" accept="image/*">
+
+        <label for="alt" id="altLabel" class="form-label">Image description:</label>
+        <input name="alt" type="text" class="form-control" id="alt" aria-labelledby="altLabel"></input>
       <button type="submit" class="btn btn-primary">Make Thread</button>
 </form>
     </div>

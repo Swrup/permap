@@ -71,3 +71,14 @@ blockquote.blockquote {
   display:table;
   width: 500px;
 }
+
+#newthread-form {
+    visibility: hidden;
+}
+
+#altLabel {
+    display:none;
+}
+#alt {
+    display:none;
+}

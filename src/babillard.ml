@@ -21,7 +21,7 @@ type op =
   ; nick : string
   ; subject : string
   ; comment : string
-  ; image : string * string
+  ; image : string * string * string
   ; tags : string list
   ; longitude : float
   ; latitude : float
@@ -35,7 +35,7 @@ type reply =
   ; date : int
   ; nick : string
   ; comment : string
-  ; image : (string * string) option
+  ; image : (string * string * string) option
   ; tags : string list
   ; replies : string list
   ; citations : string list
@@ -108,7 +108,8 @@ module Q = struct
   let create_post_image_table =
     Caqti_request.exec Caqti_type.unit
       "CREATE TABLE IF NOT EXISTS post_image (post_id TEXT, image_name TEXT, \
-       image_content, FOREIGN KEY(post_id) REFERENCES post_user(post_id));"
+       image_content TEXT, image_alt TEXT, FOREIGN KEY(post_id) REFERENCES \
+       post_user(post_id));"
 
   let create_post_gps_table =
     Caqti_request.exec Caqti_type.unit
@@ -137,8 +138,8 @@ module Q = struct
 
   let upload_post_image =
     Caqti_request.exec
-      Caqti_type.(tup3 string string string)
-      "INSERT INTO post_image VALUES (?,?,?);"
+      Caqti_type.(tup4 string string string string)
+      "INSERT INTO post_image VALUES (?,?,?,?);"
 
   let upload_post_reply =
     Caqti_request.exec
@@ -192,9 +193,10 @@ module Q = struct
     Caqti_request.find_opt Caqti_type.string Caqti_type.string
       "SELECT image_content FROM post_image WHERE post_id=?;"
 
-  let get_post_image_name =
-    Caqti_request.find_opt Caqti_type.string Caqti_type.string
-      "SELECT image_name FROM post_image WHERE post_id=?;"
+  let get_post_image_info =
+    Caqti_request.find_opt Caqti_type.string
+      Caqti_type.(tup2 string string)
+      "SELECT image_name,image_alt FROM post_image WHERE post_id=?;"
 
   let get_post_tags =
     Caqti_request.collect Caqti_type.string Caqti_type.string
@@ -264,6 +266,28 @@ let () =
       (List.map (fun query -> Db.exec query ()) tables)
   then
     Dream.warning (fun log -> log "can't create table")
+
+let parse_image image =
+  match image with
+  | None -> Ok None
+  | Some image -> (
+    let image =
+      match image with
+      | Some image_name, image_content, alt ->
+        (Dream.html_escape image_name, image_content, Dream.html_escape alt)
+      | None, image_content, alt ->
+        (* make up random name if no name was given *)
+        let image_name = Uuidm.to_string (Uuidm.v4_gen random_state ()) in
+        (image_name, image_content, Dream.html_escape alt)
+    in
+    match image with
+    | _, image_content, alt ->
+      if not (is_valid_image image_content) then
+        Error "invalid image"
+      else if String.length alt > 1000 then
+        Error "Image description too long"
+      else
+        Ok (Some image) )
 
 (* TODO: Is this safe? *)
 (*TODO fix bad link if post in other thread*)
@@ -338,7 +362,7 @@ let view_post ?is_thread_preview post_id =
   let* nick = Db.find Q.get_post_nick post_id in
   let* comment = Db.find Q.get_post_comment post_id in
   let* date = Db.find Q.get_post_date post_id in
-  let* image_name = Db.find_opt Q.get_post_image_name post_id in
+  let* image_info = Db.find_opt Q.get_post_image_info post_id in
 
   let* _tags = Db.fold Q.get_post_tags (fun tag acc -> tag :: acc) post_id [] in
   let* replies =
@@ -350,18 +374,19 @@ let view_post ?is_thread_preview post_id =
      let* _latlng = Db.find_opt Q.get_post_gps post_id in
   *)
   let image_view =
-    match image_name with
-    | Some image_name ->
+    match image_info with
+    | Some (_image_name, image_alt) ->
       (*TODO thumbnails *)
+      (*TODO image info like file name and size on top of image*)
       Format.sprintf
         {|
     <div class="postImageContainer">
-        <a title="%s" href="/post_pic/%s" target="_blank">
-        <img class= "postImage" src="/post_pic/%s" loading="lazy">
+        <a href="/post_pic/%s" target="_blank">
+        <img class="postImage" src="/post_pic/%s" alt="%s" title="%s" loading="lazy">
         </a>
     </div> 
 |}
-        image_name post_id post_id
+        post_id post_id image_alt image_alt
     | None -> ""
   in
 
@@ -425,7 +450,7 @@ let view_thread thread_id =
   match List.find_opt Result.is_error dates with
   | Some (Error e) -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
   | Some (Ok _) -> assert false
-  | None ->
+  | None -> (
     let dates = List.map Result.get_ok dates in
     let posts_dates = List.combine thread_posts dates in
     let sorted_posts_dates =
@@ -434,17 +459,21 @@ let view_thread thread_id =
 
     let posts, _ = List.split sorted_posts_dates in
     let view_posts = List.map view_post posts in
-    let view_posts =
-      List.map Result.get_ok (List.filter Result.is_ok view_posts)
-    in
-    let view_posts =
-      Format.asprintf "%a"
-        (Format.pp_print_list
-           ~pp_sep:(fun fmt () -> Format.fprintf fmt "\r\n")
-           Format.pp_print_string )
-        view_posts
-    in
-    Ok view_posts
+    match List.find_opt Result.is_error view_posts with
+    | Some (Error e) -> Error e
+    | Some (Ok _) -> assert false
+    | None ->
+      let view_posts =
+        List.map Result.get_ok (List.filter Result.is_ok view_posts)
+      in
+      let view_posts =
+        Format.asprintf "%a"
+          (Format.pp_print_list
+             ~pp_sep:(fun fmt () -> Format.fprintf fmt "\r\n")
+             Format.pp_print_string )
+          view_posts
+      in
+      Ok view_posts )
 
 let upload_post post =
   let post_id, parent_id, date, nick, comment, image, tags, citations, op_data =
@@ -485,8 +514,8 @@ let upload_post post =
   let* _res_image =
     match image with
     | None -> Ok ()
-    | Some (image_name, image_content) ->
-      Db.exec Q.upload_post_image (post_id, image_name, image_content)
+    | Some (image_name, image_content, alt) ->
+      Db.exec Q.upload_post_image (post_id, image_name, image_content, alt)
   in
   let* _res_parent = Db.exec Q.upload_post_parent (post_id, parent_id) in
   let* _res_tags =
@@ -527,45 +556,31 @@ let make_reply ~comment ?image ~tags ~parent_id nick =
   else if String.length comment > 10000 then
     Error "invalid comment"
   else
-    let image =
-      match image with
-      | Some (Some image_name, image_content) ->
-        Some (Dream.html_escape image_name, image_content)
-      | Some (None, image_content) ->
-        (* make up random name if no name was given *)
-        let image_name = Uuidm.to_string (Uuidm.v4_gen random_state ()) in
-        Some (image_name, image_content)
-      | None -> None
-    in
-    let is_valid =
-      match image with
-      | None -> true
-      | Some (_, image_content) -> is_valid_image image_content
-    in
-    if not is_valid then
-      Error "invalid image"
-    else if String.length tags > 1000 then
-      Error "invalid tags"
-    else
-      (* TODO latlng validation? *)
-      let tag_list = Str.split (Str.regexp " +") tags in
-      let id = Uuidm.to_string (Uuidm.v4_gen random_state ()) in
-      let date = int_of_float (Unix.time ()) in
-      let comment, citations = parse_comment comment in
-      let reply =
-        Reply
-          { id
-          ; parent_id
-          ; date
-          ; nick
-          ; comment
-          ; image
-          ; tags = tag_list
-          ; replies = []
-          ; citations
-          }
-      in
-      upload_post reply
+    match parse_image image with
+    | Error e -> Error e
+    | Ok image ->
+      if String.length tags > 1000 then
+        Error "invalid tags"
+      else
+        (* TODO latlng validation? *)
+        let tag_list = Str.split (Str.regexp " +") tags in
+        let id = Uuidm.to_string (Uuidm.v4_gen random_state ()) in
+        let date = int_of_float (Unix.time ()) in
+        let comment, citations = parse_comment comment in
+        let reply =
+          Reply
+            { id
+            ; parent_id
+            ; date
+            ; nick
+            ; comment
+            ; image
+            ; tags = tag_list
+            ; replies = []
+            ; citations
+            }
+        in
+        upload_post reply
 
 let make_op ~comment ~image ~tags ~subject ~lat ~lng ~board nick =
   let comment = Dream.html_escape comment in
@@ -574,52 +589,41 @@ let make_op ~comment ~image ~tags ~subject ~lat ~lng ~board nick =
   if String.length comment > 10000 then
     Error "invalid comment"
   else
-    let image =
-      match image with
-      | Some image_name, image_content ->
-        (Dream.html_escape image_name, image_content)
-      | None, image_content ->
-        (* make up random name if no name was given *)
-        let image_name = Uuidm.to_string (Uuidm.v4_gen random_state ()) in
-        (image_name, image_content)
-    in
-    let is_valid =
-      match image with
-      | _, image_content -> is_valid_image image_content
-    in
-    if not is_valid then
-      Error "invalid image"
-    else if String.length tags > 1000 then
-      Error "invalid tags"
-    else
-      (* TODO latlng validation? *)
-      let is_valid_latlng = true in
-      if not is_valid_latlng then
-        Error "Invalid coordinate"
-      else if String.length subject > 600 then
-        Error "Invalid subject"
+    match parse_image (Some image) with
+    | Error e -> Error e
+    | Ok None -> assert false
+    | Ok (Some image) ->
+      if String.length tags > 1000 then
+        Error "invalid tags"
       else
-        let tag_list = Str.split (Str.regexp " +") tags in
-        let id = Uuidm.to_string (Uuidm.v4_gen random_state ()) in
-        let date = int_of_float (Unix.time ()) in
-        let comment, citations = parse_comment comment in
-        let op =
-          Op
-            { id
-            ; board
-            ; date
-            ; nick
-            ; subject
-            ; comment
-            ; image
-            ; tags = tag_list
-            ; longitude = lng
-            ; latitude = lat
-            ; replies = []
-            ; citations
-            }
-        in
-        upload_post op
+        (* TODO latlng validation? *)
+        let is_valid_latlng = true in
+        if not is_valid_latlng then
+          Error "Invalid coordinate"
+        else if String.length subject > 600 then
+          Error "Invalid subject"
+        else
+          let tag_list = Str.split (Str.regexp " +") tags in
+          let id = Uuidm.to_string (Uuidm.v4_gen random_state ()) in
+          let date = int_of_float (Unix.time ()) in
+          let comment, citations = parse_comment comment in
+          let op =
+            Op
+              { id
+              ; board
+              ; date
+              ; nick
+              ; subject
+              ; comment
+              ; image
+              ; tags = tag_list
+              ; longitude = lng
+              ; latitude = lat
+              ; replies = []
+              ; citations
+              }
+          in
+          upload_post op
 
 let get_markers board =
   let* thread_id_list =

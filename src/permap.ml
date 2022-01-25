@@ -168,7 +168,8 @@ let newthread_post ~board request =
     match%lwt Dream.multipart request with
     (*TODO jpp du duplicat la *)
     | `Ok
-        [ ("file", file)
+        [ ("alt", [ (_, alt) ])
+        ; ("file", file)
         ; ("lat_input", [ (_, lat) ])
         ; ("lng_input", [ (_, lng) ])
         ; ("subject", [ (_, subject) ])
@@ -176,12 +177,13 @@ let newthread_post ~board request =
         ; ("threadComment", [ (_, comment) ])
         ]
     | `Ok
-        (("file", file)
-        :: ("lat_input", [ (_, lat) ])
-           :: ("lng_input", [ (_, lng) ])
-              :: ("subject", [ (_, subject) ])
-                 :: ("tags", [ (_, tags) ])
-                    :: ("threadComment", [ (_, comment) ]) :: _ :: _ ) -> (
+        (("alt", [ (_, alt) ])
+        :: ("file", file)
+           :: ("lat_input", [ (_, lat) ])
+              :: ("lng_input", [ (_, lng) ])
+                 :: ("subject", [ (_, subject) ])
+                    :: ("tags", [ (_, tags) ])
+                       :: ("threadComment", [ (_, comment) ]) :: _ :: _ ) -> (
       match (Float.of_string_opt lat, Float.of_string_opt lng) with
       | None, _ -> render_unsafe "Invalide coordinate" request
       | _, None -> render_unsafe "Invalide coordinate" request
@@ -189,10 +191,11 @@ let newthread_post ~board request =
         match file with
         | [] -> render_unsafe "No image" request
         | _ :: _ :: _ -> render_unsafe "More than one image" request
-        | [ file ] -> (
+        | [ (image_name, image_content) ] -> (
+          let image = (image_name, image_content, alt) in
           match
-            Babillard.make_op ~comment ~image:file ~lat ~lng ~subject ~tags
-              ~board nick
+            Babillard.make_op ~comment ~image ~lat ~lng ~subject ~tags ~board
+              nick
           with
           | Ok thread_id ->
             let adress =
@@ -234,20 +237,23 @@ let reply_post request =
   | Some nick -> (
     match%lwt Dream.multipart request with
     | `Ok
-        [ ("file", file)
+        [ ("alt", [ (_, alt) ])
+        ; ("file", file)
         ; ("replyComment", [ (_, comment) ])
         ; ("tags", [ (_, tags) ])
         ]
     | `Ok
-        (("file", file)
-        :: ("tags", [ (_, tags) ])
-           :: ("replyComment", [ (_, comment) ]) :: _ :: _ ) -> (
+        (("alt", [ (_, alt) ])
+        :: ("file", file)
+           :: ("tags", [ (_, tags) ])
+              :: ("replyComment", [ (_, comment) ]) :: _ :: _ ) -> (
       let parent_id = Dream.param "thread_id" request in
       let res =
         match file with
         | [] -> Babillard.make_reply ~comment ~tags ~parent_id nick
-        | [ file ] ->
-          Babillard.make_reply ~comment ~image:file ~tags ~parent_id nick
+        | [ (image_name, image_content) ] ->
+          let image = (image_name, image_content, alt) in
+          Babillard.make_reply ~comment ~image ~tags ~parent_id nick
         | _ :: _ :: _ -> Error "More than one image"
       in
       match res with

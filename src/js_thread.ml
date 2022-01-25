@@ -50,3 +50,24 @@ let () =
   in
   List.iter add_click post_images;
   ()
+
+(*!Duplicate*)
+(* make image description field visible when a file is selected*)
+let make_visible alt_input alt_label _event =
+  let alt_style = Jv.get alt_input "style" in
+  let alt_label_style = Jv.get alt_label "style" in
+  ignore @@ Jv.set alt_style "display" (Jv.of_string "block");
+  ignore @@ Jv.set alt_label_style "display" (Jv.of_string "block");
+  ()
+
+let () =
+  let file_input = Jv.find Jv.global "file" in
+  match file_input with
+  | None -> () (*not post form on the page, not logged in*)
+  | Some file_input ->
+    let alt_input = Jv.get Jv.global "alt" in
+    let alt_label = Jv.get Jv.global "altLabel" in
+    ignore
+    @@ Jv.call file_input "addEventListener"
+         [| Jv.of_string "change"; Jv.repr (make_visible alt_input alt_label) |];
+    ()
