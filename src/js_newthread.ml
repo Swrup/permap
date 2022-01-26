@@ -118,6 +118,7 @@ let make_visible alt_input alt_label _event =
   ()
 
 let () =
+  log "change image description visibility@.";
   let file_input = Jv.find Jv.global "file" in
   match file_input with
   | None -> () (*not post form on the page, not logged in*)

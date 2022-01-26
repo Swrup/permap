@@ -61,6 +61,7 @@ let make_visible alt_input alt_label _event =
   ()
 
 let () =
+  log "change image description visibility@.";
   let file_input = Jv.find Jv.global "file" in
   match file_input with
   | None -> () (*not post form on the page, not logged in*)
@@ -71,3 +72,35 @@ let () =
     @@ Jv.call file_input "addEventListener"
          [| Jv.of_string "change"; Jv.repr (make_visible alt_input alt_label) |];
     ()
+
+let () =
+  log "render time@.";
+  let document = Jv.get Jv.global "document" in
+  let times =
+    Jv.to_jv_list
+    @@ Jv.call document "getElementsByClassName" [| Jv.of_string "date" |]
+  in
+  let render_time date_span =
+    let unix_time =
+      float_of_int
+        (Jv.to_int
+           (Jv.call date_span "getAttribute" [| Jv.of_string "data-time" |]) )
+    in
+    (*use float because int overflow*)
+    let time_millisecs = 1000.0 *. unix_time in
+    let date_constructor = Jv.get Jv.global "Date" in
+    let date = Jv.new' date_constructor [| Jv.of_float time_millisecs |] in
+    let year = Jv.to_int @@ Jv.call date "getFullYear" [||] in
+    (*the month is 0-indexed*)
+    let month = (Jv.to_int @@ Jv.call date "getMonth" [||]) + 1 in
+    let day = Jv.to_int @@ Jv.call date "getDate" [||] in
+    let hour = Jv.to_int @@ Jv.call date "getHours" [||] in
+    let min = Jv.to_int @@ Jv.call date "getMinutes" [||] in
+    let date_string =
+      Format.sprintf "%02d-%02d-%02d %02d:%02d" year month day hour min
+    in
+    ignore @@ Jv.set date_span "innerHTML" (Jv.of_string date_string);
+    ()
+  in
+  List.iter render_time times;
+  ()

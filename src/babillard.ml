@@ -408,7 +408,6 @@ let view_post ?is_thread_preview post_id =
       | Ok ((0 | 1) as nb) -> Format.sprintf "%d reply" (nb - 1)
       | Ok nb -> Format.sprintf "%d replies" (nb - 1) )
   in
-  (* TODO how to display date, I should probably render everything on the client*)
   let post_info_view =
     Format.sprintf
       {|
