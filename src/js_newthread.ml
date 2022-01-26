@@ -7,8 +7,9 @@ module Leaflet = struct
     | Some l -> l
     | None -> failwith "can't load leaflet"
 
-  (* get popup object *)
-  let popup = Jv.call leaflet "popup" [||]
+  (* get popup object, with no close button*)
+  let popup =
+    Jv.call leaflet "popup" [| Jv.obj [| ("closeButton", Jv.false') |] |]
 
   (* create a map *)
   let map =
@@ -81,7 +82,8 @@ let on_click e =
 
   let lat_lng = Jv.get e "latlng" in
   ignore @@ Jv.call Leaflet.popup "setLatLng" [| lat_lng |];
-  ignore @@ Jv.call Leaflet.popup "setContent" [| Jv.of_string "euujjj" |];
+  ignore
+  @@ Jv.call Leaflet.popup "setContent" [| Jv.of_string "create thread here" |];
   ignore @@ Jv.call Leaflet.popup "openOn" [| Leaflet.map |];
 
   let lat = Jv.get lat_lng "lat" in
