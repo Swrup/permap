@@ -40,8 +40,13 @@ blockquote.blockquote {
   width: 100%;
 }
 
+.nick {
+  color: #FFB300;
+}
+
 .postComment {
   display: block;
+  padding-top: 10px;
 }
 
 .postImageContainer {

@@ -391,10 +391,11 @@ let view_post ?is_thread_preview post_id =
   in
 
   let pp_print_reply fmt reply =
-    Format.fprintf fmt {|<a class="replyLink" href="#%s">>>%s</a>|} reply reply
+    Format.fprintf fmt {|<a class="replyLink" href="#%s">&gt;&gt;%s</a>|} reply
+      reply
   in
   let pp_print_replies =
-    Format.asprintf {|<div class="repliesLink">%a</div> |}
+    Format.asprintf {|<div class="replies">%a</div>|}
       (Format.pp_print_list ~pp_sep:Format.pp_print_space pp_print_reply)
   in
 
@@ -405,22 +406,38 @@ let view_post ?is_thread_preview post_id =
       let res_nb = Db.find Q.count_thread_posts post_id in
       match res_nb with
       | Error _ -> ""
-      | Ok ((0 | 1) as nb) -> Format.sprintf "%d reply" (nb - 1)
-      | Ok nb -> Format.sprintf "%d replies" (nb - 1) )
+      | Ok ((1 | 2) as nb) ->
+        Format.sprintf {|<div class="replies">%d reply</div>|} (nb - 1)
+      | Ok nb ->
+        Format.sprintf {|<div class="replies">%d replies</div>|} (nb - 1) )
   in
-  let post_info_view =
-    Format.sprintf
-      {|
-    <div class="postInfo">
-        <span class=nick>%s</span>
-        <span class=date data-time="%d"></span>
+
+  let post_links_view =
+    match is_thread_preview with
+    | None ->
+      Format.sprintf
+        {|
         <span class=postNo>
             <a href="#%s" title="Link to this post">No.</a>
             <a href="javascript:insert_quote('%s')" "class=quoteLink title="Reply to this post">%s</a>
         </span>
         %s
+        |}
+        post_id post_id post_id replies_view
+    | Some () -> Format.sprintf {|
+        %s
+        |} replies_view
+  in
+
+  let post_info_view =
+    Format.sprintf
+      {|
+    <div class="postInfo">
+        <span class="nick">%s</span>
+        <span class="date" data-time="%d"></span>
+        %s
     </div>|}
-      nick date post_id post_id post_id replies_view
+      nick date post_links_view
   in
   let post_view =
     Format.sprintf
