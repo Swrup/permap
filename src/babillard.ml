@@ -412,9 +412,9 @@ let view_post ?is_thread_preview post_id =
   let post_info_view =
     Format.sprintf
       {|
-    <div class="postInfo"
+    <div class="postInfo">
         <span class=nick>%s</span>
-        <span class=date unix-time="%d"></span>
+        <span class=date data-time="%d"></span>
         <span class=postNo>
             <a href="#%s" title="Link to this post">No.</a>
             <a href="javascript:insert_quote('%s')" "class=quoteLink title="Reply to this post">%s</a>
