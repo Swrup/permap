@@ -10,7 +10,7 @@ let insert_quote post_id =
     let content = Jv.get comment_textarea "value" in
     let new_content =
       Jv.call content "concat"
-        [| Jv.of_string " >>"; post_id; Jv.of_string " " |]
+        [| Jv.of_string "\n>>"; post_id; Jv.of_string " " |]
     in
     ignore @@ Jv.set comment_textarea "value" new_content;
     Jv.undefined
