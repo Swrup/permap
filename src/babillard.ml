@@ -355,7 +355,7 @@ let parse_comment comment =
       lines
   in
   (* remove duplicate cited_id *)
-  let cited_posts = List.sort_uniq (fun _ _ -> 1) cited_posts in
+  let cited_posts = List.sort_uniq String.compare cited_posts in
   (comment, cited_posts)
 
 let view_post ?is_thread_preview post_id =
