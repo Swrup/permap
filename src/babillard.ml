@@ -14,19 +14,11 @@ let board_of_int = function
   | 1 -> Babillard
   | _ -> raise (Invalid_argument "board_of_int")
 
-type op =
-  { id : string
-  ; board : board
-  ; date : int
-  ; nick : string
+type thread_data =
+  { board : board
   ; subject : string
-  ; comment : string
-  ; image : string * string * string
-  ; tags : string list
-  ; longitude : float
-  ; latitude : float
-  ; replies : string list
-  ; citations : string list
+  ; lng : float
+  ; lat : float
   }
 
 type reply =
@@ -42,20 +34,23 @@ type reply =
   }
 
 type post =
-  | Op of op
+  | Op of thread_data * reply
   | Reply of reply
 
-(* ('a option, string) result *)
 let ( let** ) o f =
   match o with
   | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
   | Ok None -> Error "db error"
   | Ok (Some x) -> f x
 
-(* ('a, string) result *)
 let ( let* ) o f =
   match o with
   | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+  | Ok x -> f x
+
+let ( let+ ) o f =
+  match o with
+  | Error e -> Error (Format.sprintf "%s" e)
   | Ok x -> f x
 
 module Q = struct
@@ -492,37 +487,26 @@ let view_thread thread_id =
       Ok view_posts )
 
 let upload_post post =
-  let post_id, parent_id, date, nick, comment, image, tags, citations, op_data =
+  let thread_data, reply =
     match post with
-    | Op
-        { id
-        ; board
-        ; date
-        ; nick
-        ; subject
-        ; comment
-        ; image
-        ; tags
-        ; longitude
-        ; latitude
-        ; replies = _replies
-        ; citations
-        } ->
-      let op_data = Some (board, subject, longitude, latitude) in
-      (id, id, date, nick, comment, Some image, tags, citations, op_data)
-    | Reply
-        { id
-        ; parent_id
-        ; date
-        ; nick
-        ; comment
-        ; image
-        ; tags
-        ; replies = _replies
-        ; citations
-        } ->
-      (id, parent_id, date, nick, comment, image, tags, citations, None)
+    | Op (thread_data, reply) -> (Some thread_data, reply)
+    | Reply reply -> (None, reply)
   in
+  let post_id, parent_id, date, nick, comment, image, tags, citations =
+    match reply with
+    | { id
+      ; parent_id
+      ; date
+      ; nick
+      ; comment
+      ; image
+      ; tags
+      ; replies = _replies
+      ; citations
+      } ->
+      (id, parent_id, date, nick, comment, image, tags, citations)
+  in
+
   let* _res_post_id = Db.exec Q.upload_post_id (post_id, nick) in
   let* _res_comment = Db.exec Q.upload_post_comment (post_id, comment) in
   let* _res_date = Db.exec Q.upload_post_date (post_id, date) in
@@ -554,19 +538,28 @@ let upload_post post =
     | Some _ -> assert false
     | None -> Ok ()
   in
-  match op_data with
+  match thread_data with
   | None -> Ok post_id
-  | Some (board, subject, lng, lat) ->
-    let* _res_board =
-      Db.exec Q.upload_thread_board (post_id, int_of_board board)
-    in
-    let* _res_gps = Db.exec Q.upload_post_gps (post_id, lat, lng) in
-    let* _res_subject = Db.exec Q.upload_post_subject (post_id, subject) in
-    Ok post_id
+  | Some thread_data -> (
+    match thread_data with
+    | { board; subject; lng; lat } ->
+      let* _res_board =
+        Db.exec Q.upload_thread_board (post_id, int_of_board board)
+      in
+      let* _res_gps = Db.exec Q.upload_post_gps (post_id, lat, lng) in
+      let* _res_subject = Db.exec Q.upload_post_subject (post_id, subject) in
+      Ok post_id )
 
-let make_reply ~comment ?image ~tags ~parent_id nick =
+let build_reply ~comment ?image ~tags ?parent_id nick =
   let comment = Dream.html_escape comment in
   let tags = Dream.html_escape tags in
+  let id = Uuidm.to_string (Uuidm.v4_gen random_state ()) in
+  (* parent_id is None if this reply is supposed to be a new thread *)
+  let parent_id =
+    match parent_id with
+    | Some parent_id -> parent_id
+    | None -> id
+  in
   if Option.is_none (Uuidm.of_string parent_id) then
     Error "invalid thread id"
   else if String.length comment > 10000 then
@@ -580,66 +573,48 @@ let make_reply ~comment ?image ~tags ~parent_id nick =
       else
         (* TODO latlng validation? *)
         let tag_list = Str.split (Str.regexp " +") tags in
-        let id = Uuidm.to_string (Uuidm.v4_gen random_state ()) in
         let date = int_of_float (Unix.time ()) in
         let comment, citations = parse_comment comment in
         let reply =
-          Reply
-            { id
-            ; parent_id
-            ; date
-            ; nick
-            ; comment
-            ; image
-            ; tags = tag_list
-            ; replies = []
-            ; citations
-            }
+          { id
+          ; parent_id
+          ; date
+          ; nick
+          ; comment
+          ; image
+          ; tags = tag_list
+          ; replies = []
+          ; citations
+          }
         in
-        upload_post reply
+        Ok reply
 
-let make_op ~comment ~image ~tags ~subject ~lat ~lng ~board nick =
-  let comment = Dream.html_escape comment in
-  let tags = Dream.html_escape tags in
+let build_op ~comment ?image ~tags ~subject ~lat ~lng ~board nick =
   let subject = Dream.html_escape subject in
-  if String.length comment > 10000 then
-    Error "invalid comment"
+  (* TODO latlng validation? *)
+  let is_valid_latlng = true in
+  if not is_valid_latlng then
+    Error "Invalid coordinate"
+  else if String.length subject > 600 then
+    Error "Invalid subject"
   else
-    match parse_image (Some image) with
-    | Error e -> Error e
-    | Ok None -> assert false
-    | Ok (Some image) ->
-      if String.length tags > 1000 then
-        Error "invalid tags"
-      else
-        (* TODO latlng validation? *)
-        let is_valid_latlng = true in
-        if not is_valid_latlng then
-          Error "Invalid coordinate"
-        else if String.length subject > 600 then
-          Error "Invalid subject"
-        else
-          let tag_list = Str.split (Str.regexp " +") tags in
-          let id = Uuidm.to_string (Uuidm.v4_gen random_state ()) in
-          let date = int_of_float (Unix.time ()) in
-          let comment, citations = parse_comment comment in
-          let op =
-            Op
-              { id
-              ; board
-              ; date
-              ; nick
-              ; subject
-              ; comment
-              ; image
-              ; tags = tag_list
-              ; longitude = lng
-              ; latitude = lat
-              ; replies = []
-              ; citations
-              }
-          in
-          upload_post op
+    let thread_data = { board; subject; lng; lat } in
+    let+ reply =
+      match image with
+      | Some image -> build_reply ~comment ~image ~tags nick
+      | None -> build_reply ~comment ~tags nick
+    in
+    let op = Op (thread_data, reply) in
+    Ok op
+
+let make_reply ~comment ?image ~tags ~parent_id nick =
+  let+ reply = build_reply ~comment ?image ~tags ~parent_id nick in
+  let post = Reply reply in
+  upload_post post
+
+let make_op ~comment ?image ~tags ~subject ~lat ~lng ~board nick =
+  let+ op = build_op ~comment ?image ~tags ~subject ~lat ~lng ~board nick in
+  upload_post op
 
 let get_markers board =
   let* thread_id_list =
@@ -681,6 +656,6 @@ let get_markers board =
   in
   Ok markers
 
-let get_post_image post_id =
+let get_post_image_content post_id =
   let** content = Db.find_opt Q.get_post_image_content post_id in
   Ok content

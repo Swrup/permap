@@ -143,7 +143,7 @@ let avatar_image request =
 
 let post_image request =
   let post_id = Dream.param "post_id" request in
-  let image = Babillard.get_post_image post_id in
+  let image = Babillard.get_post_image_content post_id in
   match image with
   | Ok image -> Dream.respond ~headers:[ ("Content-Type", "image") ] image
   | Error _ -> Dream.empty `Not_Found
