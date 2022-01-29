@@ -166,7 +166,6 @@ let newthread_post ~board request =
   | None -> render_unsafe "Not logged in" request
   | Some nick -> (
     match%lwt Dream.multipart request with
-    (*TODO jpp du duplicat la *)
     | `Ok
         [ ("alt", [ (_, alt) ])
         ; ("file", file)
@@ -175,15 +174,7 @@ let newthread_post ~board request =
         ; ("subject", [ (_, subject) ])
         ; ("tags", [ (_, tags) ])
         ; ("threadComment", [ (_, comment) ])
-        ]
-    | `Ok
-        (("alt", [ (_, alt) ])
-        :: ("file", file)
-           :: ("lat_input", [ (_, lat) ])
-              :: ("lng_input", [ (_, lng) ])
-                 :: ("subject", [ (_, subject) ])
-                    :: ("tags", [ (_, tags) ])
-                       :: ("threadComment", [ (_, comment) ]) :: _ :: _ ) -> (
+        ] -> (
       match (Float.of_string_opt lat, Float.of_string_opt lng) with
       | None, _ -> render_unsafe "Invalide coordinate" request
       | _, None -> render_unsafe "Invalide coordinate" request
@@ -241,12 +232,7 @@ let reply_post request =
         ; ("file", file)
         ; ("replyComment", [ (_, comment) ])
         ; ("tags", [ (_, tags) ])
-        ]
-    | `Ok
-        (("alt", [ (_, alt) ])
-        :: ("file", file)
-           :: ("tags", [ (_, tags) ])
-              :: ("replyComment", [ (_, comment) ]) :: _ :: _ ) -> (
+        ] -> (
       let parent_id = Dream.param "thread_id" request in
       let res =
         match file with
