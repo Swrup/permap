@@ -179,23 +179,25 @@ let newthread_post ~board request =
       | None, _ -> render_unsafe "Invalide coordinate" request
       | _, None -> render_unsafe "Invalide coordinate" request
       | Some lat, Some lng -> (
-        match file with
-        | [] -> render_unsafe "No image" request
-        | _ :: _ :: _ -> render_unsafe "More than one image" request
-        | [ (image_name, image_content) ] -> (
-          let image = (image_name, image_content, alt) in
-          match
+        let res =
+          match file with
+          | [] ->
+            Babillard.make_op ~comment ~lat ~lng ~subject ~tags ~board nick
+          | _ :: _ :: _ -> Error "More than one image"
+          | [ (image_name, image_content) ] ->
+            let image = (image_name, image_content, alt) in
             Babillard.make_op ~comment ~image ~lat ~lng ~subject ~tags ~board
               nick
-          with
-          | Ok thread_id ->
-            let adress =
-              Format.asprintf "/%a/%s" Babillard.pp_board board thread_id
-            in
-            Dream.respond ~status:`See_Other
-              ~headers:[ ("Location", adress) ]
-              "Your thread was posted!"
-          | Error e -> render_unsafe e request ) ) )
+        in
+        match res with
+        | Ok thread_id ->
+          let adress =
+            Format.asprintf "/%a/%s" Babillard.pp_board board thread_id
+          in
+          Dream.respond ~status:`See_Other
+            ~headers:[ ("Location", adress) ]
+            "Your thread was posted!"
+        | Error e -> render_unsafe e request ) )
     | `Ok _ -> Dream.empty `Bad_Request
     | `Expired _
     | `Many_tokens _
