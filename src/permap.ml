@@ -149,7 +149,7 @@ let post_image request =
   | Error _ -> Dream.empty `Not_Found
 
 let markers ~board request =
-  let markers = Babillard.get_markers board in
+  let markers = Pp_babillard.get_markers board in
   match markers with
   | Ok markers ->
     Dream.respond ~headers:[ ("Content-Type", "application/json") ] markers
@@ -216,7 +216,7 @@ let newthread_post ~board request =
 
 let thread_get request =
   let thread_id = Dream.param "thread_id" request in
-  let thread_view = Babillard.view_thread thread_id in
+  let thread_view = Pp_babillard.view_thread thread_id in
   match thread_view with
   | Error e -> render_unsafe e request
   | Ok thread_view ->
@@ -225,7 +225,7 @@ let thread_get request =
 (* get thread view but not wrapped in template, so we can display it on /babillard*)
 let thread_view request =
   let thread_id = Dream.param "thread_id" request in
-  let thread_view = Babillard.view_thread thread_id in
+  let thread_view = Pp_babillard.view_thread thread_id in
   match thread_view with
   | Error e -> render_unsafe e request
   | Ok thread_view -> Dream.html (Thread_page.f thread_view thread_id request)
