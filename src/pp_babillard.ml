@@ -12,10 +12,6 @@ let view_post ?is_thread_preview post_id =
     Db.fold Q.get_post_replies (fun reply_id acc -> reply_id :: acc) post_id []
   in
 
-  (* TODO special stuff for OP
-     let* _subject = Db.find_opt Q.get_post_subject post_id in
-     let* _latlng = Db.find_opt Q.get_post_gps post_id in
-  *)
   let image_view =
     match image_info with
     | Some (_image_name, image_alt) ->
@@ -97,10 +93,26 @@ let view_post ?is_thread_preview post_id =
   in
   Ok post_view
 
-let preview_thread thread_id = view_post ~is_thread_preview:() thread_id
+let preview_thread thread_id =
+  let+ post = view_post ~is_thread_preview:() thread_id in
+  let** subject = Db.find_opt Q.get_post_subject thread_id in
+  let thread_preview =
+    Format.sprintf
+      {|
+<div class="threadPreview">
+    <div class="threadSubject">
+        %s
+    </div>
+    %s
+</div>
+|}
+      subject post
+  in
+  Ok thread_preview
 
 let view_thread thread_id =
   let** _ = Db.find_opt Q.is_thread thread_id in
+  let** subject = Db.find_opt Q.get_post_subject thread_id in
   let* thread_posts = Db.fold Q.get_thread_posts List.cons thread_id [] in
   (*order by date *)
   let dates =
@@ -122,17 +134,31 @@ let view_thread thread_id =
     | Some (Error e) -> Error e
     | Some (Ok _) -> assert false
     | None ->
-      let view_posts =
+      let posts =
         List.map Result.get_ok (List.filter Result.is_ok view_posts)
       in
-      let view_posts =
+      let posts =
         Format.asprintf "%a"
           (Format.pp_print_list
              ~pp_sep:(fun fmt () -> Format.fprintf fmt "\r\n")
              Format.pp_print_string )
-          view_posts
+          posts
       in
-      Ok view_posts )
+      let thread_view =
+        Format.sprintf
+          {|
+<div class="thread">
+    <div class="threadSubject">
+        %s
+    </div>
+    <div class="threadPosts">
+        %s
+    </div>
+</div>
+|}
+          subject posts
+      in
+      Ok thread_view )
 
 let get_markers board =
   let* thread_id_list =

@@ -47,6 +47,7 @@ blockquote.blockquote {
 .postComment {
   display: block;
   padding-top: 10px;
+  color: #333333;
 }
 
 .postImageContainer {
@@ -78,12 +79,20 @@ blockquote.blockquote {
 }
 
 #newthread-form {
-    visibility: hidden;
+  visibility: hidden;
 }
 
 #altLabel {
-    display:none;
+  display:none;
 }
 #alt {
-    display:none;
+  display:none;
+}
+
+.threadSubject {
+  margin: auto;
+  width: 50%;
+  text-align: center;
+  color: #5a5a5a;
+  font-size: 30px;
 }
