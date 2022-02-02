@@ -1,14 +1,15 @@
+include Bindings
 include Babillard
 open Db
 
 let view_post ?is_thread_preview post_id =
-  let* nick = Db.find Q.get_post_nick post_id in
-  let* comment = Db.find Q.get_post_comment post_id in
-  let* date = Db.find Q.get_post_date post_id in
-  let* image_info = Db.find_opt Q.get_post_image_info post_id in
+  let^ nick = Db.find Q.get_post_nick post_id in
+  let^ comment = Db.find Q.get_post_comment post_id in
+  let^ date = Db.find Q.get_post_date post_id in
+  let^ image_info = Db.find_opt Q.get_post_image_info post_id in
 
-  let* tags = Db.fold Q.get_post_tags (fun tag acc -> tag :: acc) post_id [] in
-  let* replies =
+  let^ tags = Db.fold Q.get_post_tags (fun tag acc -> tag :: acc) post_id [] in
+  let^ replies =
     Db.fold Q.get_post_replies (fun reply_id acc -> reply_id :: acc) post_id []
   in
 
@@ -108,8 +109,8 @@ let view_post ?is_thread_preview post_id =
   Ok post_view
 
 let preview_thread thread_id =
-  let+ post = view_post ~is_thread_preview:() thread_id in
-  let** subject = Db.find_opt Q.get_post_subject thread_id in
+  let* post = view_post ~is_thread_preview:() thread_id in
+  let^? subject = Db.find_opt Q.get_post_subject thread_id in
   let thread_preview =
     Format.sprintf
       {|
@@ -125,9 +126,9 @@ let preview_thread thread_id =
   Ok thread_preview
 
 let view_thread thread_id =
-  let** _ = Db.find_opt Q.is_thread thread_id in
-  let** subject = Db.find_opt Q.get_post_subject thread_id in
-  let* thread_posts = Db.fold Q.get_thread_posts List.cons thread_id [] in
+  let^? _ = Db.find_opt Q.is_thread thread_id in
+  let^? subject = Db.find_opt Q.get_post_subject thread_id in
+  let^ thread_posts = Db.fold Q.get_thread_posts List.cons thread_id [] in
   (*order by date *)
   let dates =
     List.map (fun post_id -> Db.find Q.get_post_date post_id) thread_posts
@@ -175,13 +176,13 @@ let view_thread thread_id =
       Ok thread_view )
 
 let get_markers board =
-  let* thread_id_list =
+  let^ thread_id_list =
     Db.fold Q.list_threads List.cons (int_of_board board) []
   in
   let markers_res =
     List.map
       (fun thread_id ->
-        let** lat, lng = Db.find_opt Q.get_post_gps thread_id in
+        let^? lat, lng = Db.find_opt Q.get_post_gps thread_id in
         match preview_thread thread_id with
         | Ok content -> Ok (lat, lng, content, thread_id)
         | Error e -> Error e )

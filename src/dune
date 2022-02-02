@@ -1,6 +1,7 @@
 (executable
  (public_name permap)
  (modules
+  bindings
   newthread_page
   thread_page
   babillard

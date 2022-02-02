@@ -1,3 +1,4 @@
+include Bindings
 open Db
 
 type t =
@@ -7,19 +8,6 @@ type t =
   ; bio : string
   ; avatar : string
   }
-
-(* ('a option, string) result *)
-let ( let** ) o f =
-  match o with
-  | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
-  | Ok None -> Error "db error"
-  | Ok (Some x) -> f x
-
-(* ('a, string) result *)
-let ( let* ) o f =
-  match o with
-  | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
-  | Ok x -> f x
 
 module Q = struct
   let create_user_table =
@@ -84,7 +72,7 @@ let () =
     Dream.warning (fun log -> log "can't create table")
 
 let login ~nick ~password request =
-  let** good_password = Db.find_opt Q.get_password nick in
+  let^? good_password = Db.find_opt Q.get_password nick in
   if Bcrypt.verify password (Bcrypt.hash_of_string good_password) then
     let _ =
       let%lwt () = Dream.invalidate_session request in
@@ -120,15 +108,15 @@ let register ~email ~nick ~password =
   if not valid then
     Error "Something is wrong"
   else
-    let** nb = Db.find_opt Q.is_already_user (nick, email) in
+    let^? nb = Db.find_opt Q.is_already_user (nick, email) in
     match nb with
     | 0 ->
-      let* () = Db.exec Q.inser_new_user (nick, password, email, ("", "")) in
+      let^ () = Db.exec Q.inser_new_user (nick, password, email, ("", "")) in
       Ok ()
     | _ -> Error "nick or email already exists"
 
 let list () =
-  let* users = Db.fold Q.list_nicks (fun nick acc -> nick :: acc) () [] in
+  let^ users = Db.fold Q.list_nicks (fun nick acc -> nick :: acc) () [] in
   Ok
     (Format.asprintf "<ul>%a</ul>"
        (Format.pp_print_list (fun fmt -> function
@@ -138,7 +126,7 @@ let list () =
 
 let public_profile request =
   let nick = Dream.param "user" request in
-  let** nick, password, email, (bio, _) = Db.find_opt Q.get_user nick in
+  let^? nick, password, email, (bio, _) = Db.find_opt Q.get_user nick in
   let user_info =
     Format.sprintf
       {|nick = `%s`; password = `%s`; email = `%s`; bio = '%s';
@@ -158,15 +146,15 @@ let update_bio bio nick =
   if not valid then
     Error "Not biologic"
   else
-    let* () = Db.exec Q.update_bio (bio, nick) in
+    let^ () = Db.exec Q.update_bio (bio, nick) in
     Ok ()
 
 let get_bio nick =
-  let** bio = Db.find_opt Q.get_bio nick in
+  let^? bio = Db.find_opt Q.get_bio nick in
   Ok bio
 
 let get_avatar nick =
-  let** avatar = Db.find_opt Q.get_avatar nick in
+  let^? avatar = Db.find_opt Q.get_avatar nick in
   if String.length avatar = 0 then
     Ok None
   else
@@ -179,6 +167,6 @@ let upload_avatar files nick =
     if not (is_valid_image content) then
       Error "Invalid image"
     else
-      let* () = Db.exec Q.upload_avatar (content, nick) in
+      let^ () = Db.exec Q.upload_avatar (content, nick) in
       Ok ()
   | _files -> Error "More than one file provided"

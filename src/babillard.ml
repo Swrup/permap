@@ -1,4 +1,5 @@
 open Db
+include Bindings
 
 exception Invalid_post of string
 
@@ -36,22 +37,6 @@ type reply =
 type post =
   | Op of thread_data * reply
   | Reply of reply
-
-let ( let** ) o f =
-  match o with
-  | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
-  | Ok None -> Error "db error"
-  | Ok (Some x) -> f x
-
-let ( let* ) o f =
-  match o with
-  | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
-  | Ok x -> f x
-
-let ( let+ ) o f =
-  match o with
-  | Error e -> Error (Format.sprintf "%s" e)
-  | Ok x -> f x
 
 module Q = struct
   let create_post_user_table =
@@ -374,18 +359,18 @@ let upload_post post =
       (id, parent_id, date, nick, comment, image, tags, citations)
   in
 
-  let* _res_post_id = Db.exec Q.upload_post_id (post_id, nick) in
-  let* _res_comment = Db.exec Q.upload_post_comment (post_id, comment) in
-  let* _res_date = Db.exec Q.upload_post_date (post_id, date) in
-  let* _res_thread = Db.exec Q.upload_to_thread (parent_id, post_id) in
-  let* _res_image =
+  let^ _res_post_id = Db.exec Q.upload_post_id (post_id, nick) in
+  let^ _res_comment = Db.exec Q.upload_post_comment (post_id, comment) in
+  let^ _res_date = Db.exec Q.upload_post_date (post_id, date) in
+  let^ _res_thread = Db.exec Q.upload_to_thread (parent_id, post_id) in
+  let^ _res_image =
     match image with
     | None -> Ok ()
     | Some (image_name, image_content, alt) ->
       Db.exec Q.upload_post_image (post_id, image_name, image_content, alt)
   in
-  let* _res_parent = Db.exec Q.upload_post_parent (post_id, parent_id) in
-  let* _res_tags =
+  let^ _res_parent = Db.exec Q.upload_post_parent (post_id, parent_id) in
+  let^ _res_tags =
     match
       List.find_opt Result.is_error
         (List.map (fun tag -> Db.exec Q.upload_post_tag (post_id, tag)) tags)
@@ -394,7 +379,7 @@ let upload_post post =
     | Some _ -> assert false
     | None -> Ok ()
   in
-  let* _res_citations =
+  let^ _res_citations =
     match
       List.find_opt Result.is_error
         (List.map
@@ -410,11 +395,11 @@ let upload_post post =
   | Some thread_data -> (
     match thread_data with
     | { board; subject; lng; lat } ->
-      let* _res_board =
+      let^ _res_board =
         Db.exec Q.upload_thread_board (post_id, int_of_board board)
       in
-      let* _res_gps = Db.exec Q.upload_post_gps (post_id, lat, lng) in
-      let* _res_subject = Db.exec Q.upload_post_subject (post_id, subject) in
+      let^ _res_gps = Db.exec Q.upload_post_gps (post_id, lat, lng) in
+      let^ _res_subject = Db.exec Q.upload_post_subject (post_id, subject) in
       Ok post_id )
 
 let build_reply ~comment ?image ~tags ?parent_id nick =
@@ -466,7 +451,7 @@ let build_op ~comment ?image ~tags ~subject ~lat ~lng ~board nick =
     Error "Invalid subject"
   else
     let thread_data = { board; subject; lng; lat } in
-    let+ reply =
+    let* reply =
       match image with
       | Some image -> build_reply ~comment ~image ~tags nick
       | None -> build_reply ~comment ~tags nick
@@ -475,14 +460,14 @@ let build_op ~comment ?image ~tags ~subject ~lat ~lng ~board nick =
     Ok op
 
 let make_reply ~comment ?image ~tags ~parent_id nick =
-  let+ reply = build_reply ~comment ?image ~tags ~parent_id nick in
+  let* reply = build_reply ~comment ?image ~tags ~parent_id nick in
   let post = Reply reply in
   upload_post post
 
 let make_op ~comment ?image ~tags ~subject ~lat ~lng ~board nick =
-  let+ op = build_op ~comment ?image ~tags ~subject ~lat ~lng ~board nick in
+  let* op = build_op ~comment ?image ~tags ~subject ~lat ~lng ~board nick in
   upload_post op
 
 let get_post_image_content post_id =
-  let** content = Db.find_opt Q.get_post_image_content post_id in
+  let^? content = Db.find_opt Q.get_post_image_content post_id in
   Ok content
