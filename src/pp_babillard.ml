@@ -7,7 +7,7 @@ let view_post ?is_thread_preview post_id =
   let* date = Db.find Q.get_post_date post_id in
   let* image_info = Db.find_opt Q.get_post_image_info post_id in
 
-  let* _tags = Db.fold Q.get_post_tags (fun tag acc -> tag :: acc) post_id [] in
+  let* tags = Db.fold Q.get_post_tags (fun tag acc -> tag :: acc) post_id [] in
   let* replies =
     Db.fold Q.get_post_replies (fun reply_id acc -> reply_id :: acc) post_id []
   in
@@ -33,9 +33,10 @@ let view_post ?is_thread_preview post_id =
     Format.fprintf fmt {|<a class="replyLink" href="#%s">&gt;&gt;%s</a>|} reply
       reply
   in
-  let pp_print_replies =
+  let pp_print_replies replies =
     Format.asprintf {|<div class="replies">%a</div>|}
       (Format.pp_print_list ~pp_sep:Format.pp_print_space pp_print_reply)
+      replies
   in
 
   let replies_view =
@@ -78,6 +79,18 @@ let view_post ?is_thread_preview post_id =
     </div>|}
       nick date post_links_view
   in
+
+  let pp_print_tag fmt tag =
+    Format.fprintf fmt {|<span class="tag">%s</span>|} tag
+  in
+  let pp_print_tags tags =
+    Format.asprintf {|<div class="tags">%a</div>|}
+      (Format.pp_print_list ~pp_sep:Format.pp_print_space pp_print_tag)
+      tags
+  in
+  let tags = List.sort String.compare tags in
+  let tags_view = pp_print_tags tags in
+
   let post_view =
     Format.sprintf
       {|
@@ -86,10 +99,11 @@ let view_post ?is_thread_preview post_id =
             %s
             %s
             <blockquote class="postComment">%s</blockquote> 
+            %s
         </div> 
 </div> 
 |}
-      post_id post_info_view image_view comment
+      post_id post_info_view image_view comment tags_view
   in
   Ok post_view
 

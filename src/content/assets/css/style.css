@@ -96,3 +96,9 @@ blockquote.blockquote {
   color: #5a5a5a;
   font-size: 30px;
 }
+
+.tag {
+  background-color: #FFB300;
+  border-radius: 4px;
+  padding: 2px;
+}
