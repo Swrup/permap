@@ -1,5 +1,6 @@
 let log = Format.printf
 
+(*TODO fix duplicate module *)
 module Leaflet = struct
   (* get the leaflet object *)
   let leaflet =
@@ -16,17 +17,6 @@ module Leaflet = struct
     let open Brr in
     let _container = El.div ~at:At.[ id (Jstr.v "map") ] [] in
     Jv.call leaflet "map" [| Jv.of_string "map" |]
-
-  (* create map's pos *)
-  let lat_lng =
-    log "making latlng@.";
-    Jv.call leaflet "latLng" [| Jv.of_float 51.505; Jv.of_float (-0.09) |]
-
-  (* set map's pos *)
-  let () =
-    log "setting view@.";
-    let _m : Jv.t = Jv.call map "setView" [| lat_lng; Jv.of_int 13 |] in
-    ()
 
   (* create map tile layer *)
   let tile_layer =
@@ -45,6 +35,64 @@ module Leaflet = struct
   let () =
     log "adding tile layer@.";
     let _map : Jv.t = Jv.call tile_layer "addTo" [| map |] in
+    ()
+
+  let storage = Brr_io.Storage.local Brr.G.window
+
+  (* set map's view *)
+  (* try to set map's view to last position viewed by using web storage *)
+  let () =
+    log "setting view@.";
+    let lat = Brr_io.Storage.get_item storage (Jstr.of_string "lat") in
+    let lng = Brr_io.Storage.get_item storage (Jstr.of_string "lng") in
+    let zoom = Brr_io.Storage.get_item storage (Jstr.of_string "zoom") in
+    match (lat, lng, zoom) with
+    | Some lat, Some lng, Some zoom ->
+      let latlng =
+        Jv.call leaflet "latLng" [| Jv.of_jstr lat; Jv.of_jstr lng |]
+      in
+      ignore @@ Jv.call map "setView" [| latlng; Jv.of_jstr zoom |]
+    | _ ->
+      let latlng =
+        Jv.call leaflet "latLng" [| Jv.of_float 51.505; Jv.of_float (-0.09) |]
+      in
+      ignore @@ Jv.call map "setView" [| latlng; Jv.of_int 13 |]
+
+  let on_moveend _event =
+    log "on zoomend event@.";
+    let latlng = Jv.call map "getCenter" [||] in
+    let lat = Jv.get latlng "lat" in
+    let lng = Jv.get latlng "lng" in
+    match
+      Brr_io.Storage.set_item storage (Jstr.of_string "lat") (Jv.to_jstr lat)
+    with
+    | (exception Jv.Error _)
+    | Error _ ->
+      failwith "can't set latlng storage"
+    | Ok () -> (
+      match
+        Brr_io.Storage.set_item storage (Jstr.of_string "lng") (Jv.to_jstr lng)
+      with
+      | (exception Jv.Error _)
+      | Error _ ->
+        failwith "can't set latlng storage"
+      | Ok () -> () )
+
+  let on_zoomend _event =
+    log "on zoomend event@.";
+    let zoom = Jv.call map "getZoom" [||] in
+    match
+      Brr_io.Storage.set_item storage (Jstr.of_string "zoom") (Jv.to_jstr zoom)
+    with
+    | (exception Jv.Error _)
+    | Error _ ->
+      failwith "can't set latlng storage"
+    | Ok () -> ()
+
+  let () =
+    log "add on (move/zoom)end event@.";
+    ignore @@ Jv.call map "on" [| Jv.of_string "moveend"; Jv.repr on_moveend |];
+    ignore @@ Jv.call map "on" [| Jv.of_string "zoomend"; Jv.repr on_zoomend |];
     ()
 end
 
