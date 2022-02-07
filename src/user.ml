@@ -126,12 +126,12 @@ let list () =
 
 let public_profile request =
   let nick = Dream.param "user" request in
-  let^? nick, password, email, (bio, _) = Db.find_opt Q.get_user nick in
+  let^? nick, _password, _email, (bio, _) = Db.find_opt Q.get_user nick in
   let user_info =
     Format.sprintf
-      {|nick = `%s`; password = `%s`; email = `%s`; bio = '%s';
+      {|nick = `%s`; bio = '%s';
     <img src="/user/%s/avatar" class="img-thumbnail" alt="Your avatar picture">|}
-      nick password email (Dream.html_escape bio) nick
+      nick (Dream.html_escape bio) nick
   in
   Ok user_info
 
