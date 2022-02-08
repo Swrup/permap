@@ -59,7 +59,7 @@ let view_post ?is_thread_preview post_id =
       Format.sprintf
         {|
         <span class=postNo>
-            <a href="#%s" title="Link to this post">No.</a>
+            <a href="#%s" title="Link to this post">#</a>
             <a href="javascript:insert_quote('%s')" "class=quoteLink title="Reply to this post">%s</a>
         </span>
         %s
