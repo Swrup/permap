@@ -1,6 +1,6 @@
 let log = Format.printf
 
-(*TODO fix duplicate module *)
+(*TODO fix duplicate modules *)
 module Leaflet = struct
   (* get the leaflet object *)
   let leaflet =
@@ -94,6 +94,29 @@ module Leaflet = struct
     ignore @@ Jv.call map "on" [| Jv.of_string "moveend"; Jv.repr on_moveend |];
     ignore @@ Jv.call map "on" [| Jv.of_string "zoomend"; Jv.repr on_zoomend |];
     ()
+end
+
+module Geolocalize = struct
+  let update_location geo =
+    log "update_location@.";
+    match geo with
+    | Error _ -> failwith "error in geolocation"
+    | Ok geo ->
+      let lat = Brr_io.Geolocation.Pos.latitude geo in
+      let lng = Brr_io.Geolocation.Pos.longitude geo in
+      let latlng =
+        Jv.call Leaflet.leaflet "latLng" [| Jv.of_float lat; Jv.of_float lng |]
+      in
+      ignore @@ Jv.call Leaflet.map "setView" [| latlng; Jv.of_int 13 |];
+      ()
+
+  let geolocalize () =
+    log "geolocalize@.";
+    let l = Brr_io.Geolocation.of_navigator Brr.G.navigator in
+    ignore @@ Fut.await (Brr_io.Geolocation.get l) update_location;
+    ()
+
+  let () = Jv.set Jv.global "geolocalize" (Jv.repr geolocalize)
 end
 
 module Marker = struct
