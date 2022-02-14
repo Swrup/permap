@@ -1,0 +1,46 @@
+(library
+ (name js_post_form)
+ (modules js_post_form)
+ (libraries js_of_ocaml brr)
+ (preprocess
+  (pps js_of_ocaml-ppx)))
+
+(library
+ (name js_pretty_post)
+ (modules js_pretty_post)
+ (libraries js_of_ocaml brr)
+ (preprocess
+  (pps js_of_ocaml-ppx)))
+
+(library
+ (name js_map)
+ (modules js_map)
+ (libraries js_of_ocaml brr js_pretty_post)
+ (js_of_ocaml
+  (javascript_files leaflet/leaflet.js))
+ (preprocess
+  (pps js_of_ocaml-ppx)))
+
+(executable
+ (name js_babillard)
+ (modules js_babillard)
+ (libraries js_of_ocaml brr js_map)
+ (modes js)
+ (preprocess
+  (pps js_of_ocaml-ppx)))
+
+(executable
+ (name js_newthread)
+ (modules js_newthread)
+ (libraries js_of_ocaml brr js_map js_post_form)
+ (modes js)
+ (preprocess
+  (pps js_of_ocaml-ppx)))
+
+(executable
+ (name js_thread)
+ (modules js_thread)
+ (libraries js_of_ocaml brr js_post_form js_pretty_post)
+ (modes js)
+ (preprocess
+  (pps js_of_ocaml-ppx)))

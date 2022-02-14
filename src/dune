@@ -31,36 +31,6 @@
  (preprocess
   (pps lwt_ppx)))
 
-(executable
- (name js_babillard)
- (modules js_babillard)
- (libraries js_of_ocaml brr)
- (modes js)
- (js_of_ocaml
-  (javascript_files leaflet/leaflet.js))
- (preprocess
-  (pps js_of_ocaml-ppx)))
-
-(executable
- (name js_newthread)
- (modules js_newthread)
- (libraries js_of_ocaml brr)
- (modes js)
- (js_of_ocaml
-  (javascript_files leaflet/leaflet.js))
- (preprocess
-  (pps js_of_ocaml-ppx)))
-
-(executable
- (name js_thread)
- (modules js_thread)
- (libraries js_of_ocaml brr)
- (modes js)
- (js_of_ocaml
-  (javascript_files leaflet/leaflet.js))
- (preprocess
-  (pps js_of_ocaml-ppx)))
-
 (rule
  (targets template.ml)
  (deps template.eml.html)

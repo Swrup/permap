@@ -1,6 +1,5 @@
 let log = Format.printf
 
-(*TODO fix duplicate modules *)
 module Leaflet = struct
   (* get the leaflet object *)
   let leaflet =
@@ -125,6 +124,7 @@ module Marker = struct
     Jv.to_string
       (Jv.call board_div "getAttribute" [| Jv.of_string "data-board" |])
 
+  (*todo do this in js_babillard*)
   let marker_on_click thread_preview thread_id _e =
     log "marker_on_click@.";
     let thread_id = Jv.to_string thread_id in
@@ -134,6 +134,7 @@ module Marker = struct
     let link = Format.sprintf "/%s/%s" board thread_id in
     ignore @@ Jv.set thread_link "href" (Jv.of_string link);
     ignore @@ Jv.set thread_link "innerText" (Jv.of_string "[View Thread]");
+    let _ = Js_pretty_post.make_pretty () in
     ()
 
   let on_each_feature feature layer =
@@ -151,10 +152,17 @@ module Marker = struct
   let handle_geojson geojson =
     log "handle_geojson@.";
     log "feed geojson to leaflet@.";
-    let dict = Jv.obj [| ("onEachFeature", Jv.repr on_each_feature) |] in
-    let layer = Jv.call Leaflet.leaflet "geoJSON" [| geojson; dict |] in
-    let _marker_layer = Jv.call layer "addTo" [| Leaflet.map |] in
-    ()
+    (* make markers unresponsive on newthread page*)
+    match Jv.find Jv.global "newthread" with
+    | None ->
+      let dict = Jv.obj [| ("onEachFeature", Jv.repr on_each_feature) |] in
+      let layer = Jv.call Leaflet.leaflet "geoJSON" [| geojson; dict |] in
+      let _marker_layer = Jv.call layer "addTo" [| Leaflet.map |] in
+      ()
+    | Some _ ->
+      let layer = Jv.call Leaflet.leaflet "geoJSON" [| geojson |] in
+      let _marker_layer = Jv.call layer "addTo" [| Leaflet.map |] in
+      ()
 
   let markers_handle_response response =
     log "markers_handle_response@.";

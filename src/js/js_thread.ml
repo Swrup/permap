@@ -1,0 +1,2 @@
+include Js_post_form
+include Js_pretty_post
