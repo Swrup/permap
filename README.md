@@ -1,6 +1,6 @@
 # Permap
 
-Permap is a open source geo-message-board software written in OCaml.
+Permap is an open source geo-message-board software written in OCaml.
 
 Permap was initially made to be a gardening/permaculture forum.
 Permap's aim is to help people find friends with similar interests around them
