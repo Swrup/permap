@@ -37,7 +37,7 @@ let page name request =
     let content = Omd.of_string page |> Omd.to_html in
     render_unsafe content request
 
-let homepage request = page "index" request
+let about request = page "about" request
 
 let register_get request = render_unsafe (Register.f request) request
 
@@ -260,11 +260,17 @@ let reply_post request =
     | `Wrong_content_type ->
       Dream.empty `Bad_Request )
 
+let redirect_to_babillard _request =
+  Dream.respond ~status:`Moved_Permanently
+    ~headers:[ ("Location", "/babillard") ]
+    ""
+
 let () =
   Dream.run @@ Dream.logger @@ Dream.memory_sessions
   @@ Dream.router
        [ Dream.get "/assets/**" (Dream.static ~loader:asset_loader "")
-       ; Dream.get "/" homepage
+       ; Dream.get "/" redirect_to_babillard
+       ; Dream.get "/about" about
        ; Dream.get "/register" register_get
        ; Dream.post "/register" register_post
        ; Dream.get "/login" login_get
