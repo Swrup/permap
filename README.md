@@ -1,40 +1,23 @@
-# permap
+# Permap
 
-permap is an [OCaml] executable/library to TODO.
+Permap is a open source geo-message-board software written in OCaml.
 
-## Installation
+Permap was initially made to be a gardening/permaculture forum.
+Permap's aim is to help people find friends with similar interests around them
+and build local communities.
 
-`permap` can be installed with [opam]:
+You can make threads with geographical coordinate, 
+this way you can find people near you doing interesting stuffs, 
+socialize with them and share local knowledge. 
 
-```sh
-opam install permap
-```
+## Permap's future
 
-If you don't have `opam`, you can install it following the [how to install opam] guide.
+- Make permap federate
 
-If you can't or don't want to use `opam`, consult the [opam file] for build instructions.
+- More than coordinates
 
-## Quickstart
+Make threads on anything with a geographical position.
+Instead of making threads with a simple (latitude * longitude) data,
+we want to be able to make threads on any OpenStreetMap's item/ActivityPub object 
+that can resolve to a geographical position.
 
-```ocaml
-let () = Format.printf "TODO@."
-```
-
-For more, have a look at the [example] folder, at the [documentation] or at the [test suite].
-
-## About
-
-- [LICENSE]
-- [CHANGELOG]
-
-[CHANGELOG]: ./CHANGES.md
-[example]: ./example/
-[LICENSE]: ./LICENSE.md
-[opam file]: ./permap.opam
-[test suite]: ./test/
-
-[documentation]: TODO
-[how to install opam]: https://opam.ocaml.org/doc/Install.html
-[OCaml]: https://ocaml.org
-[opam]: https://opam.ocaml.org/
-[permap]: TODO
