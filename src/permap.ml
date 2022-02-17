@@ -148,20 +148,18 @@ let post_image request =
   | Ok image -> Dream.respond ~headers:[ ("Content-Type", "image") ] image
   | Error _ -> Dream.empty `Not_Found
 
-let markers ~board request =
-  let markers = Pp_babillard.get_markers board in
+let markers request =
+  let markers = Pp_babillard.get_markers () in
   match markers with
   | Ok markers ->
     Dream.respond ~headers:[ ("Content-Type", "application/json") ] markers
   | Error e -> render_unsafe e request
 
-let babillard_get ~board request =
-  render_unsafe (Babillard_page.f ~board request) request
+let babillard_get request = render_unsafe (Babillard_page.f request) request
 
-let newthread_get ~board request =
-  render_unsafe (Newthread_page.f ~board request) request
+let newthread_get request = render_unsafe (Newthread_page.f request) request
 
-let newthread_post ~board request =
+let newthread_post request =
   match Dream.session "nick" request with
   | None -> render_unsafe "Not logged in" request
   | Some nick -> (
@@ -181,19 +179,15 @@ let newthread_post ~board request =
       | Some lat, Some lng -> (
         let res =
           match file with
-          | [] ->
-            Babillard.make_op ~comment ~lat ~lng ~subject ~tags ~board nick
+          | [] -> Babillard.make_op ~comment ~lat ~lng ~subject ~tags nick
           | _ :: _ :: _ -> Error "More than one image"
           | [ (image_name, image_content) ] ->
             let image = (image_name, image_content, alt) in
-            Babillard.make_op ~comment ~image ~lat ~lng ~subject ~tags ~board
-              nick
+            Babillard.make_op ~comment ~image ~lat ~lng ~subject ~tags nick
         in
         match res with
         | Ok thread_id ->
-          let adress =
-            Format.asprintf "/%a/%s" Babillard.pp_board board thread_id
-          in
+          let adress = Format.asprintf "/babillard/%s" thread_id in
           Dream.respond ~status:`See_Other
             ~headers:[ ("Location", adress) ]
             "Your thread was posted!"
@@ -282,11 +276,11 @@ let () =
        ; Dream.get "/profile" profile_get
        ; Dream.post "/profile" profile_post
        ; Dream.get "/thread_view/:thread_id" thread_view
-       ; Dream.get "/babillard/markers" (markers ~board:Babillard)
+       ; Dream.get "/babillard/markers" markers
        ; Dream.get "/post_pic/:post_id" post_image
-       ; Dream.get "/babillard" (babillard_get ~board:Babillard)
-       ; Dream.get "/babillard/new_thread" (newthread_get ~board:Babillard)
-       ; Dream.post "/babillard/new_thread" (newthread_post ~board:Babillard)
+       ; Dream.get "/babillard" babillard_get
+       ; Dream.get "/babillard/new_thread" newthread_get
+       ; Dream.post "/babillard/new_thread" newthread_post
        ; Dream.get "/babillard/:thread_id" thread_get
        ; Dream.post "/reply/:thread_id" reply_post
        ; Dream.get "/post_pic/:post_id" post_image

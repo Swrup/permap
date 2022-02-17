@@ -1,23 +1,8 @@
 open Db
 include Bindings
 
-exception Invalid_post of string
-
-type board = Babillard
-
-let int_of_board = function
-  | Babillard -> 1
-
-let pp_board fmt = function
-  | Babillard -> Format.fprintf fmt "babillard"
-
-let board_of_int = function
-  | 1 -> Babillard
-  | _ -> raise (Invalid_argument "board_of_int")
-
 type thread_data =
-  { board : board
-  ; subject : string
+  { subject : string
   ; lng : float
   ; lat : float
   }
@@ -51,12 +36,6 @@ module Q = struct
        FOREIGN KEY(post_id) REFERENCES post_user(post_id),\n\
       \       FOREIGN KEY(parent_id) REFERENCES post_user(post_id));"
 
-  let create_thread_board_table =
-    Caqti_request.exec Caqti_type.unit
-      "CREATE TABLE IF NOT EXISTS thread_board (thread_id TEXT, board INT, \
-       FOREIGN KEY(thread_id) REFERENCES post_user(post_id));"
-
-  (* TODO useless? *)
   let create_thread_table =
     Caqti_request.exec Caqti_type.unit
       "CREATE TABLE IF NOT EXISTS threads (thread_id TEXT, post_id TEXT,\n\
@@ -151,11 +130,6 @@ module Q = struct
       Caqti_type.(tup2 string string)
       "INSERT INTO threads VALUES (?,?);"
 
-  let upload_thread_board =
-    Caqti_request.exec
-      Caqti_type.(tup2 string int)
-      "INSERT INTO thread_board VALUES (?,?);"
-
   let upload_post_parent =
     Caqti_request.exec
       Caqti_type.(tup2 string string)
@@ -202,14 +176,9 @@ module Q = struct
     Caqti_request.find Caqti_type.string Caqti_type.int
       "SELECT COUNT(post_id) FROM threads WHERE thread_id=?;"
 
-  (* TODO return bool *)
   let is_thread =
-    Caqti_request.find_opt Caqti_type.string Caqti_type.string
-      "SELECT thread_id FROM threads WHERE thread_id=? LIMIT 1;"
-
-  let get_thread_board =
-    Caqti_request.find Caqti_type.string Caqti_type.int
-      "SELECT board FROM thread_board WHERE thread_id=? LIMIT 1;"
+    Caqti_request.find Caqti_type.string Caqti_type.bool
+      "IF EXISTS (SELECT thread_id FROM threads WHERE thread_id=? LIMIT 1);"
 
   let get_post_subject =
     Caqti_request.find_opt Caqti_type.string Caqti_type.string
@@ -220,9 +189,9 @@ module Q = struct
       Caqti_type.(tup2 float float)
       "SELECT lat, lng FROM post_gps WHERE post_id=?;"
 
-  let list_threads =
-    Caqti_request.collect Caqti_type.int Caqti_type.string
-      "SELECT thread_id FROM thread_board WHERE board=?;"
+  let get_threads =
+    Caqti_request.collect Caqti_type.unit Caqti_type.string
+      "SELECT thread_id FROM threads;"
 end
 
 let () =
@@ -230,7 +199,6 @@ let () =
     [ Q.create_post_user_table
     ; Q.create_post_parent_table
     ; Q.create_thread_table
-    ; Q.create_thread_board_table
     ; Q.create_post_replies_table
     ; Q.create_post_citations_table
     ; Q.create_post_date_table
@@ -269,21 +237,26 @@ let parse_image image =
       else
         Ok (Some image) )
 
-(* TODO: Is this safe? *)
-(*TODO fix bad link if post in other thread*)
+(*TODO switch to markdown !*)
+(* insert html into the comment, and keep tracks of citations :
+       -wraps lines starting with ">" with a <span class="quote">
+       -make raw posts uuid into links
+   (*TODO fix bad link if post is in other thread*)
+       -keeps tracks of every post cited in this comment
+      - add <br> at each line *)
 let parse_comment comment =
   let handle_word w =
     let trim_w = String.trim w in
     (* '>' is '&gt;' after html_escape *)
-    match String.starts_with ~prefix:{|&gt;&gt;|} trim_w with
-    | false -> (w, None)
-    | true -> (
+    if String.starts_with ~prefix:{|&gt;&gt;|} trim_w then
       let sub_w = String.sub trim_w 8 (String.length trim_w - 8) in
       match Uuidm.of_string sub_w with
       | None -> (w, None)
       | Some _ ->
         let new_w = Format.sprintf {|<a href="#%s">%s</a>|} sub_w w in
-        (new_w, Some sub_w) )
+        (new_w, Some sub_w)
+    else
+      (w, None)
   in
   let handle_line l =
     let trim_w = String.trim l in
@@ -344,46 +317,36 @@ let upload_post post =
     | Op (thread_data, reply) -> (Some thread_data, reply)
     | Reply reply -> (None, reply)
   in
-  let post_id, parent_id, date, nick, comment, image, tags, citations =
-    match reply with
-    | { id
-      ; parent_id
-      ; date
-      ; nick
-      ; comment
-      ; image
-      ; tags
-      ; replies = _replies
-      ; citations
-      } ->
-      (id, parent_id, date, nick, comment, image, tags, citations)
+  let { id; parent_id; date; nick; comment; image; tags; citations; _ } =
+    reply
   in
 
-  let^ _res_post_id = Db.exec Q.upload_post_id (post_id, nick) in
-  let^ _res_comment = Db.exec Q.upload_post_comment (post_id, comment) in
-  let^ _res_date = Db.exec Q.upload_post_date (post_id, date) in
-  let^ _res_thread = Db.exec Q.upload_to_thread (parent_id, post_id) in
-  let^ _res_image =
+  let^ () = Db.exec Q.upload_post_id (id, nick) in
+  let^ () = Db.exec Q.upload_post_comment (id, comment) in
+  let^ () = Db.exec Q.upload_post_date (id, date) in
+  let^ () = Db.exec Q.upload_to_thread (parent_id, id) in
+  let^ () =
     match image with
     | None -> Ok ()
     | Some (image_name, image_content, alt) ->
-      Db.exec Q.upload_post_image (post_id, image_name, image_content, alt)
+      Db.exec Q.upload_post_image (id, image_name, image_content, alt)
   in
-  let^ _res_parent = Db.exec Q.upload_post_parent (post_id, parent_id) in
-  let^ _res_tags =
+  (* what is parent and why do i need it again? TODO TODO *)
+  let^ () = Db.exec Q.upload_post_parent (id, parent_id) in
+  let^ () =
     match
       List.find_opt Result.is_error
-        (List.map (fun tag -> Db.exec Q.upload_post_tag (post_id, tag)) tags)
+        (List.map (fun tag -> Db.exec Q.upload_post_tag (id, tag)) tags)
     with
     | Some (Error e) -> Error e
     | Some _ -> assert false
     | None -> Ok ()
   in
-  let^ _res_citations =
+  let^ () =
     match
       List.find_opt Result.is_error
         (List.map
-           (fun cited_id -> Db.exec Q.upload_post_reply (cited_id, post_id))
+           (fun cited_id -> Db.exec Q.upload_post_reply (cited_id, id))
            citations )
     with
     | Some (Error e) -> Error e
@@ -391,27 +354,18 @@ let upload_post post =
     | None -> Ok ()
   in
   match thread_data with
-  | None -> Ok post_id
-  | Some thread_data -> (
-    match thread_data with
-    | { board; subject; lng; lat } ->
-      let^ _res_board =
-        Db.exec Q.upload_thread_board (post_id, int_of_board board)
-      in
-      let^ _res_gps = Db.exec Q.upload_post_gps (post_id, lat, lng) in
-      let^ _res_subject = Db.exec Q.upload_post_subject (post_id, subject) in
-      Ok post_id )
+  | None -> Ok id
+  | Some { subject; lng; lat } ->
+    let^ () = Db.exec Q.upload_post_gps (id, lat, lng) in
+    let^ () = Db.exec Q.upload_post_subject (id, subject) in
+    Ok id
 
 let build_reply ~comment ?image ~tags ?parent_id nick =
   let comment = Dream.html_escape comment in
   let tags = Dream.html_escape tags in
   let id = Uuidm.to_string (Uuidm.v4_gen random_state ()) in
   (* parent_id is None if this reply is supposed to be a new thread *)
-  let parent_id =
-    match parent_id with
-    | Some parent_id -> parent_id
-    | None -> id
-  in
+  let parent_id = Option.value parent_id ~default:id in
   if Option.is_none (Uuidm.of_string parent_id) then
     Error "invalid thread id"
   else if String.length comment > 10000 then
@@ -441,7 +395,7 @@ let build_reply ~comment ?image ~tags ?parent_id nick =
         in
         Ok reply
 
-let build_op ~comment ?image ~tags ~subject ~lat ~lng ~board nick =
+let build_op ~comment ?image ~tags ~subject ~lat ~lng nick =
   let subject = Dream.html_escape subject in
   (* TODO latlng validation? *)
   let is_valid_latlng = true in
@@ -450,7 +404,7 @@ let build_op ~comment ?image ~tags ~subject ~lat ~lng ~board nick =
   else if String.length subject > 600 then
     Error "Invalid subject"
   else
-    let thread_data = { board; subject; lng; lat } in
+    let thread_data = { subject; lng; lat } in
     let* reply =
       match image with
       | Some image -> build_reply ~comment ~image ~tags nick
@@ -464,8 +418,8 @@ let make_reply ~comment ?image ~tags ~parent_id nick =
   let post = Reply reply in
   upload_post post
 
-let make_op ~comment ?image ~tags ~subject ~lat ~lng ~board nick =
-  let* op = build_op ~comment ?image ~tags ~subject ~lat ~lng ~board nick in
+let make_op ~comment ?image ~tags ~subject ~lat ~lng nick =
+  let* op = build_op ~comment ?image ~tags ~subject ~lat ~lng nick in
   upload_post op
 
 let get_post_image_content post_id =

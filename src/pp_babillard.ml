@@ -126,42 +126,46 @@ let preview_thread thread_id =
   Ok thread_preview
 
 let view_thread thread_id =
-  let^? _ = Db.find_opt Q.is_thread thread_id in
-  let^? subject = Db.find_opt Q.get_post_subject thread_id in
-  let^ thread_posts = Db.fold Q.get_thread_posts List.cons thread_id [] in
-  (*order by date *)
-  let dates =
-    List.map (fun post_id -> Db.find Q.get_post_date post_id) thread_posts
-  in
-  match List.find_opt Result.is_error dates with
-  | Some (Error e) -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
-  | Some (Ok _) -> assert false
-  | None -> (
-    let dates = List.map Result.get_ok dates in
-    let posts_dates = List.combine thread_posts dates in
-    let sorted_posts_dates =
-      List.sort (fun (_, a) (_, b) -> compare a b) posts_dates
+  let^ is_thread = Db.find Q.is_thread thread_id in
+  if not is_thread then
+    Error "This thread doesn't exists"
+  else
+    let^? subject = Db.find_opt Q.get_post_subject thread_id in
+    let^ thread_posts = Db.fold Q.get_thread_posts List.cons thread_id [] in
+    (*order by date *)
+    let dates =
+      List.map (fun post_id -> Db.find Q.get_post_date post_id) thread_posts
     in
-
-    let posts, _ = List.split sorted_posts_dates in
-    let view_posts = List.map view_post posts in
-    match List.find_opt Result.is_error view_posts with
-    | Some (Error e) -> Error e
+    match List.find_opt Result.is_error dates with
+    | Some (Error e) ->
+      Error (Format.sprintf "db error: %s" (Caqti_error.show e))
     | Some (Ok _) -> assert false
-    | None ->
-      let posts =
-        List.map Result.get_ok (List.filter Result.is_ok view_posts)
+    | None -> (
+      let dates = List.map Result.get_ok dates in
+      let posts_dates = List.combine thread_posts dates in
+      let sorted_posts_dates =
+        List.sort (fun (_, a) (_, b) -> compare a b) posts_dates
       in
-      let posts =
-        Format.asprintf "%a"
-          (Format.pp_print_list
-             ~pp_sep:(fun fmt () -> Format.fprintf fmt "\r\n")
-             Format.pp_print_string )
-          posts
-      in
-      let thread_view =
-        Format.sprintf
-          {|
+
+      let posts, _ = List.split sorted_posts_dates in
+      let view_posts = List.map view_post posts in
+      match List.find_opt Result.is_error view_posts with
+      | Some (Error e) -> Error e
+      | Some (Ok _) -> assert false
+      | None ->
+        let posts =
+          List.map Result.get_ok (List.filter Result.is_ok view_posts)
+        in
+        let posts =
+          Format.asprintf "%a"
+            (Format.pp_print_list
+               ~pp_sep:(fun fmt () -> Format.fprintf fmt "\r\n")
+               Format.pp_print_string )
+            posts
+        in
+        let thread_view =
+          Format.sprintf
+            {|
 <div class="thread">
     <div class="threadSubject">
         %s
@@ -171,14 +175,12 @@ let view_thread thread_id =
     </div>
 </div>
 |}
-          subject posts
-      in
-      Ok thread_view )
+            subject posts
+        in
+        Ok thread_view )
 
-let get_markers board =
-  let^ thread_id_list =
-    Db.fold Q.list_threads List.cons (int_of_board board) []
-  in
+let get_markers () =
+  let^ thread_id_list = Db.fold Q.get_threads List.cons () [] in
   let markers_res =
     List.map
       (fun thread_id ->

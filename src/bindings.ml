@@ -13,5 +13,5 @@ let ( let^ ) o f =
 
 let ( let* ) o f =
   match o with
-  | Error e -> Error (Format.sprintf "%s" e)
+  | Error e -> Error e
   | Ok x -> f x
