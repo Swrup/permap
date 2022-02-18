@@ -12,14 +12,14 @@ module Leaflet = struct
 
   (* create a map *)
   let map =
-    log "creating map@.";
+    log "creating map@\n";
     let open Brr in
     let _container = El.div ~at:At.[ id (Jstr.v "map") ] [] in
     Jv.call leaflet "map" [| Jv.of_string "map" |]
 
   (* create map tile layer *)
   let tile_layer =
-    log "creating tile layer@.";
+    log "creating tile layer@\n";
     Jv.call leaflet "tileLayer"
       [| Jv.of_string "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
        ; Jv.obj
@@ -32,7 +32,7 @@ module Leaflet = struct
 
   (* add tile layer *)
   let () =
-    log "adding tile layer@.";
+    log "adding tile layer@\n";
     let _map : Jv.t = Jv.call tile_layer "addTo" [| map |] in
     ()
 
@@ -41,7 +41,7 @@ module Leaflet = struct
   (* set map's view *)
   (* try to set map's view to last position viewed by using web storage *)
   let () =
-    log "setting view@.";
+    log "setting view@\n";
     let lat = Brr_io.Storage.get_item storage (Jstr.of_string "lat") in
     let lng = Brr_io.Storage.get_item storage (Jstr.of_string "lng") in
     let zoom = Brr_io.Storage.get_item storage (Jstr.of_string "zoom") in
@@ -58,7 +58,7 @@ module Leaflet = struct
       ignore @@ Jv.call map "setView" [| latlng; Jv.of_int 13 |]
 
   let on_moveend _event =
-    log "on moveend event@.";
+    log "on moveend event@\n";
     let latlng = Jv.call map "getCenter" [||] in
     (*we need to wrap coordinates so we don't drift into a parralel universe and lose track of markers :^) *)
     let wrapped_latlng = Jv.call map "wrapLatLng" [| latlng |] in
@@ -78,12 +78,12 @@ module Leaflet = struct
           not @@ Jv.to_bool @@ Jv.call latlng "equals" [| wrapped_latlng |]
         in
         if is_wrapped then (
-          log "setView to wrapped coordinate@.";
+          log "setView to wrapped coordinate@\n";
           (* warning: calling setView in on_moveend can cause recursion *)
           ignore @@ Jv.call map "setView" [| wrapped_latlng |] ) )
 
   let on_zoomend _event =
-    log "on zoomend event@.";
+    log "on zoomend event@\n";
     let zoom = Jv.call map "getZoom" [||] in
     match
       Brr_io.Storage.set_item storage (Jstr.of_string "zoom") (Jv.to_jstr zoom)
@@ -92,14 +92,14 @@ module Leaflet = struct
     | Ok () -> ()
 
   let () =
-    log "add on (move/zoom)end event@.";
+    log "add on (move/zoom)end event@\n";
     ignore @@ Jv.call map "on" [| Jv.of_string "moveend"; Jv.repr on_moveend |];
     ignore @@ Jv.call map "on" [| Jv.of_string "zoomend"; Jv.repr on_zoomend |]
 end
 
 module Geolocalize = struct
   let update_location geo =
-    log "update_location@.";
+    log "update_location@\n";
     match geo with
     | Error _ -> failwith "error in geolocation"
     | Ok geo ->
@@ -111,7 +111,7 @@ module Geolocalize = struct
       ignore @@ Jv.call Leaflet.map "setView" [| latlng; Jv.of_int 13 |]
 
   let geolocalize _ =
-    log "geolocalize@.";
+    log "geolocalize@\n";
     let l = Brr_io.Geolocation.of_navigator Brr.G.navigator in
     ignore @@ Fut.await (Brr_io.Geolocation.get l) update_location
 
@@ -125,7 +125,7 @@ end
 module Marker = struct
   (*todo do this in js_babillard*)
   let marker_on_click thread_preview thread_id _e =
-    log "marker_on_click@.";
+    log "marker_on_click@\n";
     let thread_id = Jv.to_string thread_id in
     let thread_preview_div = Jv.get Jv.global "thread_preview_div" in
     ignore @@ Jv.set thread_preview_div "innerHTML" thread_preview;
@@ -137,7 +137,7 @@ module Marker = struct
     ()
 
   let on_each_feature feature layer =
-    log "on_each_feature@.";
+    log "on_each_feature@\n";
     let feature_properties = Jv.get feature "properties" in
     let thread_preview = Jv.get feature_properties "content" in
     let thread_id = Jv.get feature_properties "thread_id" in
@@ -148,8 +148,8 @@ module Marker = struct
          |]
 
   let handle_geojson geojson =
-    log "handle_geojson@.";
-    log "feed geojson to leaflet@.";
+    log "handle_geojson@\n";
+    log "feed geojson to leaflet@\n";
     (* make markers unresponsive on newthread page*)
     match Jv.find Jv.global "newthread" with
     | None ->
@@ -163,12 +163,12 @@ module Marker = struct
       ()
 
   let markers_handle_response response =
-    log "markers_handle_response@.";
+    log "markers_handle_response@\n";
     let geo_json_list_futur = Jv.call response "json" [||] in
     ignore @@ Jv.call geo_json_list_futur "then" [| Jv.repr handle_geojson |]
 
   let () =
-    log "fetch thread geojson@.";
+    log "fetch thread geojson@\n";
     let window = Jv.get Jv.global "window" in
     let link = Jv.of_string "/markers" in
     let fetchfutur = Jv.call window "fetch" [| link |] in

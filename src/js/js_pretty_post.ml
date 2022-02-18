@@ -13,7 +13,7 @@ let to_string = function Small -> "post-image" | Big -> "post-image-big"
 
 (*change postImage class to make it bigger/smaller on click*)
 let image_click post_image event =
-  log "image_click@.";
+  log "image_click@\n";
   let current_class =
     Jv.to_string @@ Jv.call post_image "getAttribute" [| Jv.of_string "class" |]
   in
@@ -30,7 +30,7 @@ let image_click post_image event =
   ignore @@ Jv.call event "preventDefault" [||]
 
 let render_time date_span =
-  log "render time@.";
+  log "render time@\n";
   let t =
     float_of_int
       (Jv.to_int
@@ -44,7 +44,7 @@ let render_time date_span =
   ignore @@ Jv.set date_span "innerHTML" (Jv.of_string date)
 
 let make_pretty _event =
-  log "make pretty@.";
+  log "make pretty@\n";
   let document = Jv.get Jv.global "document" in
 
   let times =
@@ -68,7 +68,7 @@ let make_pretty _event =
 
 (*make pretty after page load*)
 let () =
-  log "add load eventlistener to make pretty@.";
+  log "add load eventlistener to make pretty@\n";
   let window = Jv.get Jv.global "window" in
   ignore
   @@ Jv.call window "addEventListener"

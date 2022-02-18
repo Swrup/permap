@@ -3,7 +3,7 @@ let log = Format.printf
 (* called by clicking post_id *)
 (* insert id into reply form *)
 let insert_quote post_id _event =
-  log "quote@.";
+  log "quote@\n";
   Option.iter
     (fun comment_textarea ->
       let content = Jv.get comment_textarea "value" in
@@ -16,13 +16,13 @@ let insert_quote post_id _event =
   Jv.undefined
 
 let () =
-  log "add inser_quote event on post links@.";
+  log "add inser_quote event on post links@\n";
   let document = Jv.get Jv.global "document" in
   let quote_links =
     Jv.to_jv_list
     @@ Jv.call document "getElementsByClassName" [| Jv.of_string "quote-link" |]
   in
-  log "quote_links leng %d@." (List.length quote_links);
+  log "quote_links leng %d@\n" (List.length quote_links);
   let add_click quote_link =
     let post_id =
       Jv.call quote_link "getAttribute" [| Jv.of_string "data-id" |]
@@ -39,7 +39,7 @@ let make_visible el _event =
   ignore @@ Jv.set el_style "display" (Jv.of_string "block")
 
 let () =
-  log "change image description visibility@.";
+  log "change image description visibility@\n";
   Option.iter
     (fun file_input ->
       let alt_input = Jv.get Jv.global "alt" in

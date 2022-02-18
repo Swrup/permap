@@ -5,7 +5,7 @@ let log = Format.printf
 
 (* set input lat/lng when clicked and make new thread form visible *)
 let on_click e =
-  log "on_click@.";
+  log "on_click@\n";
 
   let lat_lng = Jv.get e "latlng" in
   ignore @@ Jv.call Leaflet.popup "setLatLng" [| lat_lng |];
