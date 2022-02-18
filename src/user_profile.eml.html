@@ -1,16 +1,19 @@
 let f nick bio request =
-<%s  Format.sprintf "Hello %s !" nick %>
-    <%s! Dream.form_tag ~action:"/profile" request %>
-      <div class="mb-3">
-        <label for="bio" class="form-label">Bio</label>
-        <textarea name="bio" type="text" class="form-control" id="bio" aria-describedby="bioHelp"><%s bio %></textarea>
-        <div id="bioHelp" class="form-text">Who are you?</div>
-      </div>
-      <button type="submit" class="btn btn-primary">Save</button>
-    </form>
-
-    <img src="/user/<%s nick %>/avatar" class="img-thumbnail" alt="Your avatar picture">
-    <%s! Dream.form_tag ~action:"/profile" ~enctype:`Multipart_form_data request %>
-      <input name="file" type="file">
-      <button>Submit!</button>
-    </form>
+  <h1><%s  Format.sprintf "Hello %s !" nick %></h1>
+  <%s! Dream.form_tag ~action:"/profile" request %>
+    <div class="mb-3">
+      <label for="bio" class="form-label">Bio</label>
+      <textarea name="bio" type="text" class="form-control" id="bio" aria-describedby="bioHelp"><%s bio %></textarea>
+      <div id="bioHelp" class="form-text">Who are you?</div>
+    </div>
+    <button type="submit" class="btn btn-primary">Save</button>
+  </form>
+  <br />
+  <img src="/user/<%s nick %>/avatar" class="img-thumbnail" alt="Your avatar picture" />
+  <br />
+  <br />
+  <%s! Dream.form_tag ~action:"/profile" ~enctype:`Multipart_form_data request %>
+    <input name="file" type="file"><br />
+    <br />
+    <button class="btn btn-primary">Submit picture!</button>
+  </form>

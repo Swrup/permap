@@ -1,39 +1,43 @@
 let f request =
 % begin match Dream.session "nick" request with
 % | None ->
-Login to make a new thread.
+  <a href="/login">Login</a> to make a new thread.
 % | Some _nick ->
-<script type="text/javascript" src="/assets/js/js_newthread.js" defer="defer"></script>
-<div id="newthread">Click the map to make a new thread:</div>
-<div class="row mb-3">
+  <script type="text/javascript" src="/assets/js/js_newthread.js" defer="defer"></script>
+  <h1>New thread</h1>
+  <div id="newthread">
+      Click the map to make a new thread:
+  </div>
+  <br />
+  <div class="row mb-3">
     <div class="col-md-6">
-        <div id="map"></div>
-        <button onclick="geolocalize()">Geolocalize me</button>
+      <div id="map"></div>
+      <br />
+      <button class="btn btn-primary" onclick="geolocalize()">Geolocalize me</button>
     </div>
-
     <div class="col-md-6" id="newthread-form">
-    <div class="postForm">
+      <div class="postForm">
 <%s! Dream.form_tag ~action:"/babillard/new_thread" ~enctype:`Multipart_form_data request %>
-        <input type="hidden" id="lat_input" name="lat_input">
-        <input type="hidden" id="lng_input" name="lng_input">
+          <input type="hidden" id="lat_input" name="lat_input">
+          <input type="hidden" id="lng_input" name="lng_input">
 
-        <label for="subject" id="subjectLabel" class="form-label">Subject</label>
-        <input name="subject" type="text" class="form-control" id="subject" aria-labelledby="subjectLabel"></input>
+          <label for="subject" id="subjectLabel" class="form-label">Subject</label>
+          <input name="subject" type="text" class="form-control" id="subject" aria-labelledby="subjectLabel"></input>
 
-        <label for="threadComment" id="threadCommentLabel" class="form-label">Comment</label>
-        <textarea name="threadComment" type="text" class="form-control" id="threadComment" aria-labelledby="threadCommentLabel"></textarea>
+          <label for="threadComment" id="threadCommentLabel" class="form-label">Comment</label>
+          <textarea name="threadComment" type="text" class="form-control" id="threadComment" aria-labelledby="threadCommentLabel"></textarea>
 
-        <label for="tags" id="tagsLabel" class="form-label">Tags</label>
-        <input name="tags" type="text" class="form-control" id="tags" aria-labelledby="tagsLabel"></input>
+          <label for="tags" id="tagsLabel" class="form-label">Tags</label>
+          <input name="tags" type="text" class="form-control" id="tags" aria-labelledby="tagsLabel"></input>
 
-        <label for="file" id="fileLabel" class="form-label">Picture:</label>
-        <input id="file" name="file" aria-describedby="fileLabel" type="file" accept="image/*">
+          <label for="file" id="fileLabel" class="form-label">Picture:</label>
+          <input id="file" name="file" aria-describedby="fileLabel" type="file" accept="image/*">
 
-        <label for="alt" id="altLabel" class="form-label">Image description:</label>
-        <input name="alt" type="text" class="form-control" id="alt" aria-labelledby="altLabel"></input>
-      <button type="submit" class="btn btn-primary">Make Thread</button>
-</form>
+          <label for="alt" id="altLabel" class="form-label">Image description:</label>
+          <input name="alt" type="text" class="form-control" id="alt" aria-labelledby="altLabel"></input>
+          <button type="submit" class="btn btn-primary">Make Thread</button>
+        </form>
+      </div>
     </div>
-    </div>
-</div>
+  </div>
 % end;

@@ -129,8 +129,18 @@ let public_profile request =
   let^? nick, _password, _email, (bio, _) = Db.find_opt Q.get_user nick in
   let user_info =
     Format.sprintf
-      {|nick = `%s`; bio = '%s';
-    <img src="/user/%s/avatar" class="img-thumbnail" alt="Your avatar picture">|}
+      {|
+    <h1>%s</h1>
+    <br />
+    <div class="row">
+      <div class="col-md-6">
+        <blockquote>%s</blockquote>
+      </div>
+      <div class="col-md-6">
+        <img src="/user/%s/avatar" class="img-thumbnail" alt="Your avatar picture">
+      </div>
+    </div>
+|}
       nick (Dream.html_escape bio) nick
   in
   Ok user_info

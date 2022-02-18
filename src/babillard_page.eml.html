@@ -4,12 +4,12 @@ let f request =
   <br />
   <div class="row mb-3">
     <div class="col-md-6">
-% if Option.is_some @@ Dream.session "nick" request then begin
-      <a href="/babillard/new_thread" >[New Thread]</a>
-% end;
       <div id="map"></div>
       <br />
       <button class="btn btn-primary" onclick="geolocalize()">Geolocalize me</button>
+% if Option.is_some @@ Dream.session "nick" request then begin
+      <a class="btn btn-primary" href="/babillard/new_thread">New Thread</a>
+% end;
     </div>
     <div class="col-md-6">
       <div id="thread_preview_div"></div>
