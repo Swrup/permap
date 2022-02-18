@@ -101,12 +101,16 @@ module Geolocalize = struct
       in
       ignore @@ Jv.call Leaflet.map "setView" [| latlng; Jv.of_int 13 |]
 
-  let geolocalize () =
+  let geolocalize _ =
     log "geolocalize@.";
     let l = Brr_io.Geolocation.of_navigator Brr.G.navigator in
     ignore @@ Fut.await (Brr_io.Geolocation.get l) update_location
 
-  let () = Jv.set Jv.global "geolocalize" (Jv.repr geolocalize)
+  let () =
+    let button = Jv.get Jv.global "geolocalize" in
+    ignore
+    @@ Jv.call button "addEventListener"
+         [| Jv.of_string "click"; Jv.repr geolocalize |]
 end
 
 module Marker = struct

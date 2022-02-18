@@ -43,7 +43,7 @@ let render_time date_span =
   in
   ignore @@ Jv.set date_span "innerHTML" (Jv.of_string date)
 
-let make_pretty _ =
+let make_pretty _event =
   log "make pretty@.";
   let document = Jv.get Jv.global "document" in
 

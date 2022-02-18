@@ -6,7 +6,7 @@ let f request =
     <div class="col-md-6">
       <div id="map"></div>
       <br />
-      <button class="btn btn-primary" onclick="geolocalize()">Geolocalize me</button>
+      <button class="btn btn-primary" id="geolocalize">Geolocalize me</button>
 % if Option.is_some @@ Dream.session "nick" request then begin
       <a class="btn btn-primary" href="/babillard/new_thread">New Thread</a>
 % end;

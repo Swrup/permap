@@ -225,12 +225,9 @@ let parse_image image =
         (* make up random name if no name was given *)
         Uuidm.to_string (Uuidm.v4_gen random_state ())
     in
-    if not (is_valid_image content) then
-      Error "invalid image"
-    else if String.length alt > 1000 then
-      Error "Image description too long"
-    else
-      Ok (Some (name, content, alt))
+    if not (is_valid_image content) then Error "invalid image"
+    else if String.length alt > 1000 then Error "Image description too long"
+    else Ok (Some (name, content, alt))
 
 (*TODO switch to markdown !*)
 (* insert html into the comment, and keep tracks of citations :

@@ -57,8 +57,8 @@ let view_post ?is_thread_preview post_id =
       Format.fprintf fmt
         {|
         <span class=postNo>
-            <a href="#%s" title="Link to this post">#</a>
-            <a href="javascript:insert_quote('%s')" class="quoteLink" title="Reply to this post">%s</a>
+            <a href="#%s" title="Link to this post" class="quote">#</a>
+            <button data-id="%s" class="quoteLink" title="Reply to this post">%s</button>
         </span>
         %a
         |}

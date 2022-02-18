@@ -69,6 +69,26 @@ blockquote.blockquote {
   color: green;
 }
 
+.quoteLink {
+  background-color: #FCE4EC;
+  padding: 2px;
+  text-align: center;
+  color: #5a5a5a;
+  font-size: 10px;
+  border-radius: 12px;
+  border: 2px solid DodgerBlue;
+}
+
+.quoteLink:focus {
+  background-color: #FCE4EC;
+  padding: 2px;
+  text-align: center;
+  color: #5a5a5a;
+  font-size: 10px;
+  border-radius: 12px;
+  border: 2px solid DodgerBlue;
+}
+
 .postForm {
   background-color: #FCE4EC;
   margin: 5px 5px 5px 5px;

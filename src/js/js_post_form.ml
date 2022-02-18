@@ -2,7 +2,7 @@ let log = Format.printf
 
 (* called by clicking post_id *)
 (* insert id into reply form *)
-let insert_quote post_id =
+let insert_quote post_id _event =
   log "quote@.";
   Option.iter
     (fun comment_textarea ->
@@ -15,7 +15,23 @@ let insert_quote post_id =
     Jv.(find global "replyComment");
   Jv.undefined
 
-let () = Jv.set Jv.global "insert_quote" (Jv.repr insert_quote)
+let () =
+  log "add inser_quote event on post links@.";
+  let document = Jv.get Jv.global "document" in
+  let quote_links =
+    Jv.to_jv_list
+    @@ Jv.call document "getElementsByClassName" [| Jv.of_string "quoteLink" |]
+  in
+  log "quote_links leng %d@." (List.length quote_links);
+  let add_click quote_link =
+    let post_id =
+      Jv.call quote_link "getAttribute" [| Jv.of_string "data-id" |]
+    in
+    ignore
+    @@ Jv.call quote_link "addEventListener"
+         [| Jv.of_string "click"; Jv.repr (insert_quote post_id) |]
+  in
+  List.iter add_click quote_links
 
 (* make image description field visible when a file is selected*)
 let make_visible el _event =
