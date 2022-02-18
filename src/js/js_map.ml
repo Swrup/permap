@@ -91,8 +91,7 @@ module Leaflet = struct
   let () =
     log "add on (move/zoom)end event@.";
     ignore @@ Jv.call map "on" [| Jv.of_string "moveend"; Jv.repr on_moveend |];
-    ignore @@ Jv.call map "on" [| Jv.of_string "zoomend"; Jv.repr on_zoomend |];
-    ()
+    ignore @@ Jv.call map "on" [| Jv.of_string "zoomend"; Jv.repr on_zoomend |]
 end
 
 module Geolocalize = struct
@@ -106,14 +105,12 @@ module Geolocalize = struct
       let latlng =
         Jv.call Leaflet.leaflet "latLng" [| Jv.of_float lat; Jv.of_float lng |]
       in
-      ignore @@ Jv.call Leaflet.map "setView" [| latlng; Jv.of_int 13 |];
-      ()
+      ignore @@ Jv.call Leaflet.map "setView" [| latlng; Jv.of_int 13 |]
 
   let geolocalize () =
     log "geolocalize@.";
     let l = Brr_io.Geolocation.of_navigator Brr.G.navigator in
-    ignore @@ Fut.await (Brr_io.Geolocation.get l) update_location;
-    ()
+    ignore @@ Fut.await (Brr_io.Geolocation.get l) update_location
 
   let () = Jv.set Jv.global "geolocalize" (Jv.repr geolocalize)
 end
@@ -141,8 +138,7 @@ module Marker = struct
     @@ Jv.call layer "on"
          [| Jv.of_string "click"
           ; Jv.repr (marker_on_click thread_preview thread_id)
-         |];
-    ()
+         |]
 
   let handle_geojson geojson =
     log "handle_geojson@.";
@@ -162,14 +158,12 @@ module Marker = struct
   let markers_handle_response response =
     log "markers_handle_response@.";
     let geo_json_list_futur = Jv.call response "json" [||] in
-    ignore @@ Jv.call geo_json_list_futur "then" [| Jv.repr handle_geojson |];
-    ()
+    ignore @@ Jv.call geo_json_list_futur "then" [| Jv.repr handle_geojson |]
 
   let () =
     log "fetch thread geojson@.";
     let window = Jv.get Jv.global "window" in
     let link = Jv.of_string "/babillard/markers" in
     let fetchfutur = Jv.call window "fetch" [| link |] in
-    ignore @@ Jv.call fetchfutur "then" [| Jv.repr markers_handle_response |];
-    ()
+    ignore @@ Jv.call fetchfutur "then" [| Jv.repr markers_handle_response |]
 end

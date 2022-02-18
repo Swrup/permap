@@ -176,9 +176,9 @@ module Q = struct
     Caqti_request.find Caqti_type.string Caqti_type.int
       "SELECT COUNT(post_id) FROM threads WHERE thread_id=?;"
 
-  let is_thread =
-    Caqti_request.find Caqti_type.string Caqti_type.bool
-      "IF EXISTS (SELECT thread_id FROM threads WHERE thread_id=? LIMIT 1);"
+  let get_thread =
+    Caqti_request.find Caqti_type.string Caqti_type.string
+      "SELECT thread_id FROM threads WHERE thread_id=? LIMIT 1;"
 
   let get_post_subject =
     Caqti_request.find_opt Caqti_type.string Caqti_type.string
@@ -213,7 +213,7 @@ let () =
     List.exists Result.is_error
       (List.map (fun query -> Db.exec query ()) tables)
   then
-    Dream.warning (fun log -> log "can't create table")
+    Dream.error (fun log -> log "can't create table")
 
 let parse_image image =
   match image with

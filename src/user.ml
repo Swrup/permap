@@ -69,7 +69,7 @@ let () =
     List.exists Result.is_error
       (List.map (fun query -> Db.exec query ()) tables)
   then
-    Dream.warning (fun log -> log "can't create table")
+    Dream.error (fun log -> log "can't create table")
 
 let login ~nick ~password request =
   let^? good_password = Db.find_opt Q.get_password nick in
@@ -109,14 +109,14 @@ let register ~email ~nick ~password =
     Error "Something is wrong"
   else
     let^? nb = Db.find_opt Q.is_already_user (nick, email) in
-    match nb with
-    | 0 ->
+    if nb = 0 then
       let^ () = Db.exec Q.inser_new_user (nick, password, email, ("", "")) in
       Ok ()
-    | _ -> Error "nick or email already exists"
+    else
+      Error "nick or email already exists"
 
 let list () =
-  let^ users = Db.fold Q.list_nicks (fun nick acc -> nick :: acc) () [] in
+  let^ users = Db.collect_list Q.list_nicks () in
   Ok
     (Format.asprintf "<ul>%a</ul>"
        (Format.pp_print_list (fun fmt -> function

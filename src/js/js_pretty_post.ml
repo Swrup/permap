@@ -1,5 +1,18 @@
 let log = Format.printf
 
+type image_size =
+  | Big
+  | Small
+
+let of_string = function
+  | "postImage" -> Some Small
+  | "postImageBig" -> Some Big
+  | _ -> None
+
+let to_string = function
+  | Small -> "postImage"
+  | Big -> "postImageBig"
+
 (*change postImage class to make it bigger/smaller on click*)
 let image_click post_image event =
   log "image_click@.";
@@ -7,17 +20,19 @@ let image_click post_image event =
     Jv.to_string @@ Jv.call post_image "getAttribute" [| Jv.of_string "class" |]
   in
   let new_class =
-    match current_class with
-    | "postImage" -> "postImageBig"
-    | "postImageBig" -> "postImage"
-    | _ -> failwith "invalid image class name"
+    match of_string current_class with
+    | Some image_size ->
+      to_string
+        ( match image_size with
+        | Big -> Small
+        | Small -> Big )
+    | None -> failwith "invalid image class name"
   in
   ignore
   @@ Jv.call post_image "setAttribute"
        [| Jv.of_string "class"; Jv.of_string new_class |];
   (*prevent opening image in new tab*)
-  ignore @@ Jv.call event "preventDefault" [||];
-  ()
+  ignore @@ Jv.call event "preventDefault" [||]
 
 let render_time date_span =
   log "render time@.";
@@ -39,8 +54,7 @@ let render_time date_span =
   let date_string =
     Format.sprintf "%02d-%02d-%02d %02d:%02d" year month day hour min
   in
-  ignore @@ Jv.set date_span "innerHTML" (Jv.of_string date_string);
-  ()
+  ignore @@ Jv.set date_span "innerHTML" (Jv.of_string date_string)
 
 let make_pretty _ =
   log "make pretty@.";
@@ -71,5 +85,4 @@ let () =
   let window = Jv.get Jv.global "window" in
   ignore
   @@ Jv.call window "addEventListener"
-       [| Jv.of_string "load"; Jv.repr make_pretty |];
-  ()
+       [| Jv.of_string "load"; Jv.repr make_pretty |]

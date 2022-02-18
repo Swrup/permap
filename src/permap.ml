@@ -63,17 +63,11 @@ let login_post request =
   | _ -> assert false
 
 let user request =
-  render_unsafe
-    ( match User.list () with
-    | Ok s -> s
-    | Error _ -> "" )
-    request
+  render_unsafe (Result.fold ~ok:Fun.id ~error:Fun.id (User.list ())) request
 
 let user_profile request =
   render_unsafe
-    ( match User.public_profile request with
-    | Ok s -> s
-    | Error e -> e )
+    (Result.fold ~ok:Fun.id ~error:Fun.id (User.public_profile request))
     request
 
 let logout request =

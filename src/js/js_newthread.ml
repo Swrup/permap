@@ -27,8 +27,7 @@ let on_click e =
   let newthread_div = Jv.get Jv.global "newthread" in
   ignore
   @@ Jv.call newthread_div "setAttribute"
-       [| Jv.of_string "style"; Jv.of_string "visibility:hidden" |];
-  ()
+       [| Jv.of_string "style"; Jv.of_string "visibility:hidden" |]
 
 (*add on_click callback to map*)
 let () =
