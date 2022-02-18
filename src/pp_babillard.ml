@@ -2,14 +2,19 @@ include Bindings
 include Babillard
 open Db
 
-let view_post ?is_thread_preview post_id =
-  let^ nick = Db.find Q.get_post_nick post_id in
-  let^ comment = Db.find Q.get_post_comment post_id in
-  let^ date = Db.find Q.get_post_date post_id in
-  let^ image_info = Db.find_opt Q.get_post_image_info post_id in
-
-  let^ tags = Db.collect_list Q.get_post_tags post_id in
-  let^ replies = Db.collect_list Q.get_post_replies post_id in
+let view_post ?is_thread_preview id =
+  let* { id
+       ; parent_id = _parent_id
+       ; date
+       ; nick
+       ; comment
+       ; image_info
+       ; tags
+       ; replies
+       ; citations = _citations
+       } =
+    get_post id
+  in
 
   let image_view fmt () =
     match image_info with
@@ -19,12 +24,12 @@ let view_post ?is_thread_preview post_id =
       Format.fprintf fmt
         {|
     <div class="postImageContainer">
-        <a href="/post_pic/%s">
-        <img class="postImage" src="/post_pic/%s" alt="%s" title="%s" loading="lazy">
+        <a href="/img/%s">
+        <img class="postImage" src="/img/%s" alt="%s" title="%s" loading="lazy">
         </a>
     </div> 
 |}
-        post_id post_id image_alt image_alt
+        id id image_alt image_alt
     | None -> Format.fprintf fmt ""
   in
 
@@ -42,7 +47,7 @@ let view_post ?is_thread_preview post_id =
     match is_thread_preview with
     | None -> pp_print_replies fmt replies
     | Some () -> (
-      let res_nb = Db.find Q.count_thread_posts post_id in
+      let res_nb = Db.find Q.count_thread_posts id in
       match res_nb with
       | Error _ -> Format.fprintf fmt ""
       | Ok ((1 | 2) as nb) ->
@@ -62,7 +67,7 @@ let view_post ?is_thread_preview post_id =
         </span>
         %a
         |}
-        post_id post_id post_id replies_view ()
+        id id id replies_view ()
     | Some () -> Format.fprintf fmt {|
         %a
         |} replies_view ()
@@ -102,7 +107,7 @@ let view_post ?is_thread_preview post_id =
         </div> 
 </div> 
 |}
-      post_id post_info_view () image_view () comment tags_view ()
+      id post_info_view () image_view () comment tags_view ()
   in
   Ok post_view
 
@@ -124,7 +129,7 @@ let preview_thread thread_id =
   Ok thread_preview
 
 let view_thread thread_id =
-  let^ _is_thread = Db.find Q.get_thread thread_id in
+  let^ _is_thread = Db.find Q.get_is_thread thread_id in
   let^? subject = Db.find_opt Q.get_post_subject thread_id in
   let^ thread_posts = Db.collect_list Q.get_thread_posts thread_id in
   (*order by date *)

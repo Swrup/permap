@@ -13,7 +13,7 @@ type reply =
   ; date : int
   ; nick : string
   ; comment : string
-  ; image : (string * string * string) option
+  ; image_info : (string * string) option
   ; tags : string list
   ; replies : string list
   ; citations : string list
@@ -64,11 +64,15 @@ module Q = struct
       "CREATE TABLE IF NOT EXISTS post_comment (post_id TEXT, comment TEXT, \
        FOREIGN KEY(post_id) REFERENCES post_user(post_id));"
 
-  let create_post_image_table =
+  let create_image_info_table =
     Caqti_request.exec Caqti_type.unit
-      "CREATE TABLE IF NOT EXISTS post_image (post_id TEXT, image_name TEXT, \
-       image_content TEXT, image_alt TEXT, FOREIGN KEY(post_id) REFERENCES \
-       post_user(post_id));"
+      "CREATE TABLE IF NOT EXISTS image_info (post_id TEXT, image_name TEXT, \
+       image_alt TEXT, FOREIGN KEY(post_id) REFERENCES post_user(post_id));"
+
+  let create_image_content_table =
+    Caqti_request.exec Caqti_type.unit
+      "CREATE TABLE IF NOT EXISTS image_content (post_id TEXT,image_content \
+       TEXT, FOREIGN KEY(post_id) REFERENCES post_user(post_id));"
 
   let create_post_gps_table =
     Caqti_request.exec Caqti_type.unit
@@ -95,10 +99,15 @@ module Q = struct
       Caqti_type.(tup3 string float float)
       "INSERT INTO post_gps VALUES (?,?,?);"
 
-  let upload_post_image =
+  let upload_image_info =
     Caqti_request.exec
-      Caqti_type.(tup4 string string string string)
-      "INSERT INTO post_image VALUES (?,?,?,?);"
+      Caqti_type.(tup3 string string string)
+      "INSERT INTO image_info VALUES (?,?,?);"
+
+  let upload_image_content =
+    Caqti_request.exec
+      Caqti_type.(tup2 string string)
+      "INSERT INTO image_content VALUES (?,?);"
 
   let upload_post_reply =
     Caqti_request.exec
@@ -145,12 +154,12 @@ module Q = struct
 
   let get_post_image_content =
     Caqti_request.find_opt Caqti_type.string Caqti_type.string
-      "SELECT image_content FROM post_image WHERE post_id=?;"
+      "SELECT image_content FROM image_content WHERE post_id=?;"
 
   let get_post_image_info =
     Caqti_request.find_opt Caqti_type.string
       Caqti_type.(tup2 string string)
-      "SELECT image_name,image_alt FROM post_image WHERE post_id=?;"
+      "SELECT image_name,image_alt FROM image_info WHERE post_id=?;"
 
   let get_post_tags =
     Caqti_request.collect Caqti_type.string Caqti_type.string
@@ -203,7 +212,8 @@ let () =
     ; Q.create_post_citations_table
     ; Q.create_post_date_table
     ; Q.create_post_comment_table
-    ; Q.create_post_image_table
+    ; Q.create_image_info_table
+    ; Q.create_image_content_table
     ; Q.create_post_gps_table
     ; Q.create_post_subject_table
     ; Q.create_post_tags_table
@@ -217,7 +227,7 @@ let () =
 let parse_image image =
   match image with
   | None -> Ok None
-  | Some (name, content, alt) ->
+  | Some ((name, alt), content) ->
     let name =
       match name with
       | Some name -> Dream.html_escape name
@@ -227,7 +237,7 @@ let parse_image image =
     in
     if not (is_valid_image content) then Error "invalid image"
     else if String.length alt > 1000 then Error "Image description too long"
-    else Ok (Some (name, content, alt))
+    else Ok (Some ((name, alt), content))
 
 (*TODO switch to markdown !*)
 (* insert html into the comment, and keep tracks of citations :
@@ -302,13 +312,13 @@ let parse_comment comment =
   let cited_posts = List.sort_uniq String.compare cited_posts in
   (comment, cited_posts)
 
-let upload_post post =
+let upload_post ?image_content post =
   let thread_data, reply =
     match post with
     | Op (thread_data, reply) -> (Some thread_data, reply)
     | Reply reply -> (None, reply)
   in
-  let { id; parent_id; date; nick; comment; image; tags; citations; _ } =
+  let { id; parent_id; date; nick; comment; image_info; tags; citations; _ } =
     reply
   in
 
@@ -316,11 +326,15 @@ let upload_post post =
   let^ () = Db.exec Q.upload_post_comment (id, comment) in
   let^ () = Db.exec Q.upload_post_date (id, date) in
   let^ () = Db.exec Q.upload_to_thread (parent_id, id) in
-  let^ () =
-    match image with
-    | None -> Ok ()
-    | Some (image_name, image_content, alt) ->
-      Db.exec Q.upload_post_image (id, image_name, image_content, alt)
+  let _res_image_info, _res_image_content =
+    match image_info with
+    | None -> (Ok (), Ok ())
+    | Some (name, alt) -> (
+      match image_content with
+      | None -> failwith "No image_content for a post with image"
+      | Some content ->
+        ( Db.exec Q.upload_image_info (id, name, alt)
+        , Db.exec Q.upload_image_content (id, content) ) )
   in
   (* what is parent and why do i need it again? TODO TODO *)
   let^ () = Db.exec Q.upload_post_parent (id, parent_id) in
@@ -365,7 +379,11 @@ let build_reply ~comment ?image ~tags ?parent_id nick =
     | Ok image ->
       if String.length tags > 1000 then Error "invalid tags"
       else
-        (* TODO latlng validation? *)
+        let image_info =
+          match image with
+          | None -> None
+          | Some (image_info, _image_content) -> Some image_info
+        in
         let tag_list = Str.split (Str.regexp " +") tags in
         let date = int_of_float (Unix.time ()) in
         let comment, citations = parse_comment comment in
@@ -375,7 +393,7 @@ let build_reply ~comment ?image ~tags ?parent_id nick =
           ; date
           ; nick
           ; comment
-          ; image
+          ; image_info
           ; tags = tag_list
           ; replies = []
           ; citations
@@ -402,11 +420,15 @@ let build_op ~comment ?image ~tags ~subject ~lat ~lng nick =
 let make_reply ~comment ?image ~tags ~parent_id nick =
   let* reply = build_reply ~comment ?image ~tags ~parent_id nick in
   let post = Reply reply in
-  upload_post post
+  match image with
+  | None -> upload_post post
+  | Some (_image_info, image_content) -> upload_post ~image_content post
 
 let make_op ~comment ?image ~tags ~subject ~lat ~lng nick =
   let* op = build_op ~comment ?image ~tags ~subject ~lat ~lng nick in
-  upload_post op
+  match image with
+  | None -> upload_post op
+  | Some (_image_info, image_content) -> upload_post ~image_content op
 
 let get_post_image_content post_id =
   let^? content = Db.find_opt Q.get_post_image_content post_id in

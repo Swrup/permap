@@ -152,7 +152,7 @@ let newthread_post request =
           | [] -> Babillard.make_op ~comment ~lat ~lng ~subject ~tags nick
           | _ :: _ :: _ -> Error "More than one image"
           | [ (image_name, image_content) ] ->
-            let image = (image_name, image_content, alt) in
+            let image = ((image_name, alt), image_content) in
             Babillard.make_op ~comment ~image ~lat ~lng ~subject ~tags nick
         in
         match res with
@@ -200,7 +200,7 @@ let reply_post request =
         match file with
         | [] -> Babillard.make_reply ~comment ~tags ~parent_id nick
         | [ (image_name, image_content) ] ->
-          let image = (image_name, image_content, alt) in
+          let image = ((image_name, alt), image_content) in
           Babillard.make_reply ~comment ~image ~tags ~parent_id nick
         | _ :: _ :: _ -> Error "More than one image"
       in
@@ -247,6 +247,6 @@ let () =
        ; Dream.post "/new_thread" newthread_post
        ; Dream.get "/:thread_id" thread_get
        ; Dream.post "/:thread_id" reply_post
-       ; Dream.get "/post_pic/:post_id" post_image
+       ; Dream.get "/img/:post_id" post_image
        ]
   @@ Dream.not_found
