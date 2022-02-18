@@ -21,6 +21,9 @@ let render_unsafe ~title ~content request =
                           <li class="nav-item">
                               <a class="nav-link" href="/babillard">Babillard</a>
                           </li>
+                          <li class="nav-item">
+                              <a class="nav-link" href="/user">Discover users</a>
+                          </li>
                       </ul>
                       <ul class="navbar-nav ms-auto mb-2 mb-md-0">
 % begin match Dream.session "nick" request with
@@ -32,19 +35,16 @@ let render_unsafe ~title ~content request =
                               <a class="nav-link" href="/login">Login</a>
                           </li>
 % | Some nick ->
-                          <li class="nav-item">
-                            <a class="nav-link" href="/profile"><%s! nick %></a>
-                          </li>
-                          <li class="nav-item">
-                              <a class="nav-link" href="/logout">Logout</a>
+                          <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" id="navbarDarkDropdownMenuLink" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                              <%s! nick %>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end" aria-labelledby="navbarDarkDropdownMenuLink">
+                              <li><a class="dropdown-item" href="/profile">Your profile</a></li>
+                              <li><a class="dropdown-item" href="/logout">Sign out</a></li>
+                            </ul>
                           </li>
 % end;
-                          <li class="nav-item">
-                              <a class="nav-link" href="/user">Users</a>
-                          </li>
-                          <li class="nav-item">
-                              <a class="nav-link" href="/about">About</a>
-                          </li>
                       </ul>
                   </div>
               </div>
@@ -60,7 +60,7 @@ let render_unsafe ~title ~content request =
         </div>
         <hr class="featurette-divider">
         <footer class="container">
-          <p>permap
+          <p> <a href="/about">about permap</a>
             | <a href="https://git.zapashcanon.fr/zapashcanon/permap">source code</a>
           </p>
         </footer>
