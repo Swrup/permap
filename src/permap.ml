@@ -157,7 +157,7 @@ let newthread_post request =
         in
         match res with
         | Ok thread_id ->
-          let adress = Format.asprintf "/babillard/%s" thread_id in
+          let adress = Format.asprintf "/%s" thread_id in
           Dream.respond ~status:`See_Other
             ~headers:[ ("Location", adress) ]
             "Your thread was posted!"
@@ -206,7 +206,7 @@ let reply_post request =
       in
       match res with
       | Ok post_id ->
-        let adress = Format.sprintf "/babillard/%s#%s" parent_id post_id in
+        let adress = Format.sprintf "/%s#%s" parent_id post_id in
         Dream.respond ~status:`See_Other
           ~headers:[ ("Location", adress) ]
           "Your reply was posted!"
@@ -217,9 +217,7 @@ let reply_post request =
       Dream.empty `Bad_Request )
 
 let redirect_to_babillard _request =
-  Dream.respond ~status:`Moved_Permanently
-    ~headers:[ ("Location", "/babillard") ]
-    ""
+  Dream.respond ~status:`Moved_Permanently ~headers:[ ("Location", "/") ] ""
 
 let () =
   Dream.run ~secret:"yolo" ~port:3696
@@ -230,7 +228,6 @@ let () =
   *)
   @@ Dream.router
        [ Dream.get "/assets/**" (Dream.static ~loader:asset_loader "")
-       ; Dream.get "/" redirect_to_babillard
        ; Dream.get "/about" about
        ; Dream.get "/register" register_get
        ; Dream.post "/register" register_post
@@ -243,13 +240,13 @@ let () =
        ; Dream.get "/profile" profile_get
        ; Dream.post "/profile" profile_post
        ; Dream.get "/thread_view/:thread_id" thread_view
-       ; Dream.get "/babillard/markers" markers
+       ; Dream.get "/markers" markers
        ; Dream.get "/post_pic/:post_id" post_image
-       ; Dream.get "/babillard" babillard_get
-       ; Dream.get "/babillard/new_thread" newthread_get
-       ; Dream.post "/babillard/new_thread" newthread_post
-       ; Dream.get "/babillard/:thread_id" thread_get
-       ; Dream.post "/reply/:thread_id" reply_post
+       ; Dream.get "/" babillard_get
+       ; Dream.get "/new_thread" newthread_get
+       ; Dream.post "/new_thread" newthread_post
+       ; Dream.get "/:thread_id" thread_get
+       ; Dream.post "/:thread_id" reply_post
        ; Dream.get "/post_pic/:post_id" post_image
        ]
   @@ Dream.not_found
