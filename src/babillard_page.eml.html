@@ -8,7 +8,7 @@ let f request =
       <br />
       <button class="btn btn-primary" id="geolocalize">Geolocalize me</button>
 % if Option.is_some @@ Dream.session "nick" request then begin
-      <a class="btn btn-primary" href="/babillard/new_thread">New Thread</a>
+      <a class="btn btn-primary" href="/new_thread">New Thread</a>
 % end;
     </div>
     <div class="col-md-6">

@@ -5,11 +5,11 @@ type image_size =
   | Small
 
 let of_string = function
-  | "postImage" -> Some Small
-  | "postImageBig" -> Some Big
+  | "post-image" -> Some Small
+  | "post-image-big" -> Some Big
   | _ -> None
 
-let to_string = function Small -> "postImage" | Big -> "postImageBig"
+let to_string = function Small -> "post-image" | Big -> "post-image-big"
 
 (*change postImage class to make it bigger/smaller on click*)
 let image_click post_image event =
@@ -56,7 +56,7 @@ let make_pretty _event =
   (*add event image_click to all postImage*)
   let post_images =
     Jv.to_jv_list
-    @@ Jv.call document "getElementsByClassName" [| Jv.of_string "postImage" |]
+    @@ Jv.call document "getElementsByClassName" [| Jv.of_string "post-image" |]
   in
   let add_click el =
     ignore

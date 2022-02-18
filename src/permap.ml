@@ -137,11 +137,11 @@ let newthread_post request =
     | `Ok
         [ ("alt", [ (_, alt) ])
         ; ("file", file)
-        ; ("lat_input", [ (_, lat) ])
-        ; ("lng_input", [ (_, lng) ])
+        ; ("lat-input", [ (_, lat) ])
+        ; ("lng-input", [ (_, lng) ])
         ; ("subject", [ (_, subject) ])
         ; ("tags", [ (_, tags) ])
-        ; ("threadComment", [ (_, comment) ])
+        ; ("thread-comment", [ (_, comment) ])
         ] -> (
       match (Float.of_string_opt lat, Float.of_string_opt lng) with
       | None, _ -> render_unsafe "Invalide coordinate" request
@@ -192,7 +192,7 @@ let reply_post request =
     | `Ok
         [ ("alt", [ (_, alt) ])
         ; ("file", file)
-        ; ("replyComment", [ (_, comment) ])
+        ; ("reply-comment", [ (_, comment) ])
         ; ("tags", [ (_, tags) ])
         ] -> (
       let parent_id = Dream.param "thread_id" request in
@@ -215,9 +215,6 @@ let reply_post request =
     | `Expired _ | `Many_tokens _ | `Missing_token _ | `Invalid_token _
     | `Wrong_session _ | `Wrong_content_type ->
       Dream.empty `Bad_Request )
-
-let redirect_to_babillard _request =
-  Dream.respond ~status:`Moved_Permanently ~headers:[ ("Location", "/") ] ""
 
 let () =
   Dream.run ~secret:"yolo" ~port:3696

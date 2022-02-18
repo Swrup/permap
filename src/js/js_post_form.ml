@@ -12,7 +12,7 @@ let insert_quote post_id _event =
           [| Jv.of_string "\n>>"; post_id; Jv.of_string " " |]
       in
       ignore @@ Jv.set comment_textarea "value" new_content )
-    Jv.(find global "replyComment");
+    Jv.(find global "reply-comment");
   Jv.undefined
 
 let () =
@@ -20,7 +20,7 @@ let () =
   let document = Jv.get Jv.global "document" in
   let quote_links =
     Jv.to_jv_list
-    @@ Jv.call document "getElementsByClassName" [| Jv.of_string "quoteLink" |]
+    @@ Jv.call document "getElementsByClassName" [| Jv.of_string "quote-link" |]
   in
   log "quote_links leng %d@." (List.length quote_links);
   let add_click quote_link =
@@ -43,7 +43,7 @@ let () =
   Option.iter
     (fun file_input ->
       let alt_input = Jv.get Jv.global "alt" in
-      let alt_label = Jv.get Jv.global "altLabel" in
+      let alt_label = Jv.get Jv.global "alt-label" in
       ignore
       @@ Jv.call file_input "addEventListener"
            [| Jv.of_string "change"; Jv.repr (make_visible alt_input) |];

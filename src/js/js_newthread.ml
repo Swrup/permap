@@ -15,8 +15,8 @@ let on_click e =
 
   let lat = Jv.get lat_lng "lat" in
   let lng = Jv.get lat_lng "lng" in
-  let lat_input = Jv.get Jv.global "lat_input" in
-  let lng_input = Jv.get Jv.global "lng_input" in
+  let lat_input = Jv.get Jv.global "lat-input" in
+  let lng_input = Jv.get Jv.global "lng-input" in
   ignore @@ Jv.call lat_input "setAttribute" [| Jv.of_string "value"; lat |];
   ignore @@ Jv.call lng_input "setAttribute" [| Jv.of_string "value"; lng |];
 

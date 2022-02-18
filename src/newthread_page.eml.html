@@ -17,24 +17,24 @@ let f request =
     </div>
     <div class="col-md-6" id="newthread-form">
       <div class="postForm">
-<%s! Dream.form_tag ~action:"/babillard/new_thread" ~enctype:`Multipart_form_data request %>
-          <input type="hidden" id="lat_input" name="lat_input">
-          <input type="hidden" id="lng_input" name="lng_input">
+<%s! Dream.form_tag ~action:"/new_thread" ~enctype:`Multipart_form_data request %>
+          <input type="hidden" id="lat-input" name="lat-input">
+          <input type="hidden" id="lng-input" name="lng-input">
 
-          <label for="subject" id="subjectLabel" class="form-label">Subject</label>
-          <input name="subject" type="text" class="form-control" id="subject" aria-labelledby="subjectLabel"></input>
+          <label for="subject" id="subject-label" class="form-label">Subject</label>
+          <input name="subject" type="text" class="form-control" id="subject" aria-labelledby="subject-label"></input>
 
-          <label for="threadComment" id="threadCommentLabel" class="form-label">Comment</label>
-          <textarea name="threadComment" type="text" class="form-control" id="threadComment" aria-labelledby="threadCommentLabel"></textarea>
+          <label for="thread-comment" id="thread-comment-label" class="form-label">Comment</label>
+          <textarea name="thread-comment" type="text" class="form-control" id="thread-comment" aria-labelledby="thread-comment-label"></textarea>
 
-          <label for="tags" id="tagsLabel" class="form-label">Tags</label>
-          <input name="tags" type="text" class="form-control" id="tags" aria-labelledby="tagsLabel"></input>
+          <label for="tags" id="tags-label" class="form-label">Tags</label>
+          <input name="tags" type="text" class="form-control" id="tags" aria-labelledby="tags-label"></input>
 
-          <label for="file" id="fileLabel" class="form-label">Picture:</label>
-          <input id="file" name="file" aria-describedby="fileLabel" type="file" accept="image/*">
+          <label for="file" id="file-label" class="form-label">Picture:</label>
+          <input id="file" name="file" aria-describedby="file-label" type="file" accept="image/*">
 
-          <label for="alt" id="altLabel" class="form-label">Image description:</label>
-          <input name="alt" type="text" class="form-control" id="alt" aria-labelledby="altLabel"></input>
+          <label for="alt" id="alt-label" class="form-label">Image description:</label>
+          <input name="alt" type="text" class="form-control" id="alt" aria-labelledby="alt-label"></input>
           <button type="submit" class="btn btn-primary">Make Thread</button>
         </form>
       </div>

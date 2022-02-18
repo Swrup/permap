@@ -23,9 +23,9 @@ let view_post ?is_thread_preview id =
       (*TODO image info like file name and size on top of image*)
       Format.fprintf fmt
         {|
-    <div class="postImageContainer">
+    <div class="post-image-container">
         <a href="/img/%s">
-        <img class="postImage" src="/img/%s" alt="%s" title="%s" loading="lazy">
+        <img class="post-image" src="/img/%s" alt="%s" title="%s" loading="lazy">
         </a>
     </div> 
 |}
@@ -34,7 +34,7 @@ let view_post ?is_thread_preview id =
   in
 
   let pp_print_reply fmt reply =
-    Format.fprintf fmt {|<a class="replyLink" href="#%s">&gt;&gt;%s</a>|} reply
+    Format.fprintf fmt {|<a class="reply-link" href="#%s">&gt;&gt;%s</a>|} reply
       reply
   in
   let pp_print_replies fmt replies =
@@ -63,7 +63,7 @@ let view_post ?is_thread_preview id =
         {|
         <span class=postNo>
             <a href="#%s" title="Link to this post" class="quote">#</a>
-            <button data-id="%s" class="quoteLink" title="Reply to this post">%s</button>
+            <button data-id="%s" class="quote-link" title="Reply to this post">%s</button>
         </span>
         %a
         |}
@@ -76,7 +76,7 @@ let view_post ?is_thread_preview id =
   let post_info_view fmt () =
     Format.fprintf fmt
       {|
-    <div class="postInfo">
+    <div class="post-info">
         <span class="nick">%s</span>
         <span class="date" data-time="%d"></span>
         %a
@@ -102,7 +102,7 @@ let view_post ?is_thread_preview id =
         <div class="post" id="%s">
             %a
             %a
-            <blockquote class="postComment">%s</blockquote> 
+            <blockquote class="post-comment">%s</blockquote> 
             %a
         </div> 
 </div> 
@@ -117,8 +117,8 @@ let preview_thread thread_id =
   let thread_preview =
     Format.sprintf
       {|
-<div class="threadPreview">
-    <div class="threadSubject">
+<div class="thread-preview">
+    <div class="thread-subject">
         %s
     </div>
     %s
@@ -164,10 +164,10 @@ let view_thread thread_id =
         Format.sprintf
           {|
 <div class="thread">
-    <div class="threadSubject">
+    <div class="thread-subject">
         %s
     </div>
-    <div class="threadPosts">
+    <div class="thread-posts">
         %s
     </div>
 </div>

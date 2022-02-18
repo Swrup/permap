@@ -5,21 +5,21 @@ let f thread_view thread_id request =
 % | None ->
 
 % | Some _ ->
-    <div class="postForm">
+    <div class="post-form">
         <%s! Dream.form_tag ~action:( Format.sprintf "/%s" thread_id)
         ~enctype:`Multipart_form_data request %>
 
-        <label for="replyComment" id="replyCommentLabel" class="form-label">Comment:</label>
-        <textarea name="replyComment" type="text" class="form-control" id="replyComment" aria-labelledby="replyCommentLabel"></textarea>
+        <label for="reply-comment" id="reply-comment-label" class="form-label">Comment:</label>
+        <textarea name="reply-comment" type="text" class="form-control" id="reply-comment" aria-labelledby="reply-comment-label"></textarea>
 
-        <label for="tags" id="tagsLabel" class="form-label">Tags:</label>
-        <input name="tags" type="text" class="form-control" id="tags" aria-labelledby="tagsLabel"></input>
+        <label for="tags" id="tags-label" class="form-label">Tags:</label>
+        <input name="tags" type="text" class="form-control" id="tags" aria-labelledby="tags-label"></input>
 
-        <label for="file" id="fileLabel" class="form-label">Picture:</label>
-        <input id="file" name="file" aria-describedby="fileLabel" type="file" accept="image/*">
+        <label for="file" id="file-label" class="form-label">Picture:</label>
+        <input id="file" name="file" aria-describedby="file-label" type="file" accept="image/*">
 
-        <label for="alt" id="altLabel" class="form-label">Image description:</label>
-        <input name="alt" type="text" class="form-control" id="alt" aria-labelledby="altLabel"></input>
+        <label for="alt" id="alt-label" class="form-label">Image description:</label>
+        <input name="alt" type="text" class="form-control" id="alt" aria-labelledby="alt-label"></input>
       <button type="submit" class="btn btn-primary">Reply</button>
       </div>
     </form>

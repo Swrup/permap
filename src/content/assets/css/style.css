@@ -35,7 +35,7 @@ blockquote.blockquote {
   display: table;
 }
 
-.postInfo {
+.post-info {
   display: block;
   width: 100%;
 }
@@ -44,23 +44,23 @@ blockquote.blockquote {
   color: #FFB300;
 }
 
-.postComment {
+.post-comment {
   display: block;
   padding-top: 10px;
   color: #333333;
 }
 
-.postImageContainer {
+.post-image-container {
   float: left;
   padding: 5px 5px 5px 5px;
 }
 
-.postImage {
+.post-image {
   max-width: 250px;
   height: auto;
 }
 
-.postImageBig {
+.post-image-big {
   max-width: 750px;
   height: auto;
 }
@@ -69,7 +69,7 @@ blockquote.blockquote {
   color: green;
 }
 
-.quoteLink {
+.quote-link {
   background-color: #FCE4EC;
   padding: 2px;
   text-align: center;
@@ -79,7 +79,7 @@ blockquote.blockquote {
   border: 2px solid DodgerBlue;
 }
 
-.quoteLink:focus {
+.quote-link:focus {
   background-color: #FCE4EC;
   padding: 2px;
   text-align: center;
@@ -89,7 +89,7 @@ blockquote.blockquote {
   border: 2px solid DodgerBlue;
 }
 
-.postForm {
+.post-form {
   background-color: #FCE4EC;
   margin: 5px 5px 5px 5px;
   border: 2px solid #FFB300;
@@ -102,14 +102,15 @@ blockquote.blockquote {
   visibility: hidden;
 }
 
-#altLabel {
+#alt-label {
   display:none;
 }
+
 #alt {
   display:none;
 }
 
-.threadSubject {
+.thread-subject {
   margin: auto;
   width: 50%;
   text-align: center;
