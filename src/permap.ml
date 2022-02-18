@@ -222,7 +222,11 @@ let redirect_to_babillard _request =
     ""
 
 let () =
-  Dream.run @@ Dream.logger @@ Dream.memory_sessions
+  Dream.run ~secret:"yolo" @@ Dream.logger @@ Dream.cookie_sessions
+  (* this should replace memory/cookie sessions but it doesn't work :-(
+     @@ Dream.sql_pool Db.db_uri
+     @@ Dream.sql_sessions
+  *)
   @@ Dream.router
        [ Dream.get "/assets/**" (Dream.static ~loader:asset_loader "")
        ; Dream.get "/" redirect_to_babillard

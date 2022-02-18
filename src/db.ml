@@ -9,12 +9,25 @@ let () =
 
 let db = Filename.concat db_root "permap.db"
 
+let db_uri = Format.sprintf "sqlite3://%s" db
+
 let random_state = Random.State.make_self_init ()
 
 module Db =
-( val Caqti_blocking.connect (Uri.of_string ("sqlite3://" ^ db))
-      |> Caqti_blocking.or_fail )
+(val Caqti_blocking.connect (Uri.of_string db_uri) |> Caqti_blocking.or_fail)
 
 (* TODO do image validation: length and MIME types with conan*)
 (* TODO do the same for text input: check length, forbidden chars and have a forbidden words filter*)
 let is_valid_image _content = true
+
+let () =
+  let query =
+    Caqti_request.exec Caqti_type.unit
+      "CREATE TABLE IF NOT EXISTS dream_session (id TEXT PRIMARY KEY, label \
+       TEXT NOT NULL, expires_at REAL NOT NULL, payload TEXT NOT NULL);"
+  in
+  match Db.exec query () with
+  | Ok () -> ()
+  | Error _e ->
+    Format.eprintf "db error@\n";
+    exit 1
