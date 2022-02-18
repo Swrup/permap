@@ -58,10 +58,12 @@ module Leaflet = struct
       ignore @@ Jv.call map "setView" [| latlng; Jv.of_int 13 |]
 
   let on_moveend _event =
-    log "on zoomend event@.";
+    log "on moveend event@.";
     let latlng = Jv.call map "getCenter" [||] in
-    let lat = Jv.get latlng "lat" in
-    let lng = Jv.get latlng "lng" in
+    (*we need to wrap coordinates so we don't drift into a parralel universe and lose track of markers :^) *)
+    let wrapped_latlng = Jv.call map "wrapLatLng" [| latlng |] in
+    let lat = Jv.get wrapped_latlng "lat" in
+    let lng = Jv.get wrapped_latlng "lng" in
     match
       Brr_io.Storage.set_item storage (Jstr.of_string "lat") (Jv.to_jstr lat)
     with
@@ -71,7 +73,14 @@ module Leaflet = struct
         Brr_io.Storage.set_item storage (Jstr.of_string "lng") (Jv.to_jstr lng)
       with
       | (exception Jv.Error _) | Error _ -> failwith "can't set latlng storage"
-      | Ok () -> () )
+      | Ok () ->
+        let is_wrapped =
+          not @@ Jv.to_bool @@ Jv.call latlng "equals" [| wrapped_latlng |]
+        in
+        if is_wrapped then (
+          log "setView to wrapped coordinate@.";
+          (* warning: calling setView in on_moveend can cause recursion *)
+          ignore @@ Jv.call map "setView" [| wrapped_latlng |] ) )
 
   let on_zoomend _event =
     log "on zoomend event@.";
