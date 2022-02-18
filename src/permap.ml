@@ -222,7 +222,8 @@ let redirect_to_babillard _request =
     ""
 
 let () =
-  Dream.run ~secret:"yolo" @@ Dream.logger @@ Dream.cookie_sessions
+  Dream.run ~secret:"yolo" ~port:3696
+  @@ Dream.logger @@ Dream.cookie_sessions
   (* this should replace memory/cookie sessions but it doesn't work :-(
      @@ Dream.sql_pool Db.db_uri
      @@ Dream.sql_sessions
