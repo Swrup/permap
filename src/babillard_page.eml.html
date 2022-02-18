@@ -1,19 +1,18 @@
 let f request =
-<script type="text/javascript" src="/assets/js/js_babillard.js" defer="defer"></script>
-<%s  Format.sprintf "Babillard is love" %>
-<div class="row mb-3">
-      <div class="col-md-6">
-% begin match Dream.session "nick" request with
-% | None ->
-
-% | Some _nick ->
-<a href="/babillard/new_thread" >[New Thread]</a>
+  <script type="text/javascript" src="/assets/js/js_babillard.js" defer="defer"></script>
+  <h1>Babillard is love ❤️</h1>
+  <br />
+  <div class="row mb-3">
+    <div class="col-md-6">
+% if Option.is_some @@ Dream.session "nick" request then begin
+      <a href="/babillard/new_thread" >[New Thread]</a>
 % end;
-<div id="map"></div>
-<button onclick="geolocalize()">Geolocalize me</button>
-      </div>
-      <div class="col-md-6">
-<div id="thread_preview_div"></div>
-<a id="thread_link"></a>
-      </div>
-</div>
+      <div id="map"></div>
+      <br />
+      <button class="btn btn-primary" onclick="geolocalize()">Geolocalize me</button>
+    </div>
+    <div class="col-md-6">
+      <div id="thread_preview_div"></div>
+      <a id="thread_link"></a>
+    </div>
+  </div>
