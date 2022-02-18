@@ -68,8 +68,7 @@ let () =
   if
     List.exists Result.is_error
       (List.map (fun query -> Db.exec query ()) tables)
-  then
-    Dream.error (fun log -> log "can't create table")
+  then Dream.error (fun log -> log "can't create table")
 
 let login ~nick ~password request =
   let^? good_password = Db.find_opt Q.get_password nick in
@@ -79,8 +78,7 @@ let login ~nick ~password request =
       Dream.put_session "nick" nick request
     in
     Ok ()
-  else
-    Error "wrong password"
+  else Error "wrong password"
 
 let register ~email ~nick ~password =
   (* TODO: remove bad characters (e.g. delthas) *)
@@ -91,9 +89,7 @@ let register ~email ~nick ~password =
   in
 
   let valid_email =
-    match Emile.of_string email with
-    | Ok _ -> true
-    | Error _ -> false
+    match Emile.of_string email with Ok _ -> true | Error _ -> false
   in
 
   let valid_password =
@@ -105,15 +101,13 @@ let register ~email ~nick ~password =
   let password = Bcrypt.hash password in
   let password = Bcrypt.string_of_hash password in
 
-  if not valid then
-    Error "Something is wrong"
+  if not valid then Error "Something is wrong"
   else
     let^? nb = Db.find_opt Q.is_already_user (nick, email) in
     if nb = 0 then
       let^ () = Db.exec Q.inser_new_user (nick, password, email, ("", "")) in
       Ok ()
-    else
-      Error "nick or email already exists"
+    else Error "nick or email already exists"
 
 let list () =
   let^ users = Db.collect_list Q.list_nicks () in
@@ -153,8 +147,7 @@ let profile request =
 let update_bio bio nick =
   let bio = Dream.html_escape bio in
   let valid = String.length bio < 10000 in
-  if not valid then
-    Error "Not biologic"
+  if not valid then Error "Not biologic"
   else
     let^ () = Db.exec Q.update_bio (bio, nick) in
     Ok ()
@@ -165,17 +158,13 @@ let get_bio nick =
 
 let get_avatar nick =
   let^? avatar = Db.find_opt Q.get_avatar nick in
-  if String.length avatar = 0 then
-    Ok None
-  else
-    Ok (Some avatar)
+  if String.length avatar = 0 then Ok None else Ok (Some avatar)
 
 let upload_avatar files nick =
   match files with
   | [] -> Error "No file provided"
   | [ (_, content) ] ->
-    if not (is_valid_image content) then
-      Error "Invalid image"
+    if not (is_valid_image content) then Error "Invalid image"
     else
       let^ () = Db.exec Q.upload_avatar (content, nick) in
       Ok ()

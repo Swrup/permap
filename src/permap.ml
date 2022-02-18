@@ -3,14 +3,11 @@ let get_title content =
   try
     let soup = content |> parse in
     soup $ "h1" |> R.leaf_text
-  with
-  | Failure _e -> "Permap"
+  with Failure _e -> "Permap"
 
 let render ?title content request =
   let title =
-    match title with
-    | None -> get_title content
-    | Some title -> title
+    match title with None -> get_title content | Some title -> title
   in
   Dream.html
   @@ Template.render_unsafe ~title:(Dream.html_escape title)
@@ -19,9 +16,7 @@ let render ?title content request =
 
 let render_unsafe ?title content request =
   let title =
-    match title with
-    | None -> get_title content
-    | Some title -> title
+    match title with None -> get_title content | Some title -> title
   in
   Dream.html @@ Template.render_unsafe ~title ~content request
 
@@ -45,13 +40,8 @@ let register_post request =
   match%lwt Dream.form request with
   | `Ok [ ("email", email); ("nick", nick); ("password", password) ] ->
     render_unsafe (Register.f ~nick ~email ~password request) request
-  | `Ok _
-  | `Many_tokens _
-  | `Missing_token _
-  | `Invalid_token _
-  | `Wrong_session _
-  | `Expired _
-  | `Wrong_content_type ->
+  | `Ok _ | `Many_tokens _ | `Missing_token _ | `Invalid_token _
+  | `Wrong_session _ | `Expired _ | `Wrong_content_type ->
     assert false
 
 let login_get request = render_unsafe (Login.f request) request
@@ -79,11 +69,7 @@ let profile_get request =
   match Dream.session "nick" request with
   | None -> render_unsafe "Not logged in" request
   | Some nick ->
-    let bio =
-      match User.get_bio nick with
-      | Ok bio -> bio
-      | Error e -> e
-    in
+    let bio = match User.get_bio nick with Ok bio -> bio | Error e -> e in
     render_unsafe (User_profile.f nick bio request) request
 
 let profile_post request =
@@ -98,13 +84,8 @@ let profile_post request =
           ~headers:[ ("Location", "/profile") ]
           "Your bio was updated!"
       | Error e -> render_unsafe e request )
-    | `Ok _
-    | `Many_tokens _
-    | `Missing_token _
-    | `Invalid_token _
-    | `Wrong_session _
-    | `Expired _
-    | `Wrong_content_type -> (
+    | `Ok _ | `Many_tokens _ | `Missing_token _ | `Invalid_token _
+    | `Wrong_session _ | `Expired _ | `Wrong_content_type -> (
       match%lwt Dream.multipart request with
       | `Ok [ ("file", file) ] -> (
         match User.upload_avatar file nick with
@@ -114,12 +95,8 @@ let profile_post request =
             "Your avatar was updated!"
         | Error e -> render_unsafe e request )
       | `Ok _ -> Dream.empty `Bad_Request
-      | `Expired _
-      | `Many_tokens _
-      | `Missing_token _
-      | `Invalid_token _
-      | `Wrong_session _
-      | `Wrong_content_type ->
+      | `Expired _ | `Many_tokens _ | `Missing_token _ | `Invalid_token _
+      | `Wrong_session _ | `Wrong_content_type ->
         Dream.empty `Bad_Request ) )
 
 let avatar_image request =
@@ -128,8 +105,7 @@ let avatar_image request =
   match avatar with
   | Ok (Some avatar) ->
     Dream.respond ~headers:[ ("Content-Type", "image") ] avatar
-  | Ok None
-  | Error _ -> (
+  | Ok None | Error _ -> (
     match Content.read "/assets/img/default_avatar.png" with
     | None -> Dream.empty `Not_Found
     | Some avatar -> Dream.respond ~headers:[ ("Content-Type", "image") ] avatar
@@ -187,12 +163,8 @@ let newthread_post request =
             "Your thread was posted!"
         | Error e -> render_unsafe e request ) )
     | `Ok _ -> Dream.empty `Bad_Request
-    | `Expired _
-    | `Many_tokens _
-    | `Missing_token _
-    | `Invalid_token _
-    | `Wrong_session _
-    | `Wrong_content_type ->
+    | `Expired _ | `Many_tokens _ | `Missing_token _ | `Invalid_token _
+    | `Wrong_session _ | `Wrong_content_type ->
       Dream.empty `Bad_Request )
 
 let thread_get request =
@@ -240,12 +212,8 @@ let reply_post request =
           "Your reply was posted!"
       | Error e -> render_unsafe e request )
     | `Ok _ -> Dream.empty `Bad_Request
-    | `Expired _
-    | `Many_tokens _
-    | `Missing_token _
-    | `Invalid_token _
-    | `Wrong_session _
-    | `Wrong_content_type ->
+    | `Expired _ | `Many_tokens _ | `Missing_token _ | `Invalid_token _
+    | `Wrong_session _ | `Wrong_content_type ->
       Dream.empty `Bad_Request )
 
 let redirect_to_babillard _request =

@@ -9,9 +9,7 @@ let of_string = function
   | "postImageBig" -> Some Big
   | _ -> None
 
-let to_string = function
-  | Small -> "postImage"
-  | Big -> "postImageBig"
+let to_string = function Small -> "postImage" | Big -> "postImageBig"
 
 (*change postImage class to make it bigger/smaller on click*)
 let image_click post_image event =
@@ -22,10 +20,7 @@ let image_click post_image event =
   let new_class =
     match of_string current_class with
     | Some image_size ->
-      to_string
-        ( match image_size with
-        | Big -> Small
-        | Small -> Big )
+      to_string (match image_size with Big -> Small | Small -> Big)
     | None -> failwith "invalid image class name"
   in
   ignore

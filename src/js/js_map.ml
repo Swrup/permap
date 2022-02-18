@@ -65,16 +65,12 @@ module Leaflet = struct
     match
       Brr_io.Storage.set_item storage (Jstr.of_string "lat") (Jv.to_jstr lat)
     with
-    | (exception Jv.Error _)
-    | Error _ ->
-      failwith "can't set latlng storage"
+    | (exception Jv.Error _) | Error _ -> failwith "can't set latlng storage"
     | Ok () -> (
       match
         Brr_io.Storage.set_item storage (Jstr.of_string "lng") (Jv.to_jstr lng)
       with
-      | (exception Jv.Error _)
-      | Error _ ->
-        failwith "can't set latlng storage"
+      | (exception Jv.Error _) | Error _ -> failwith "can't set latlng storage"
       | Ok () -> () )
 
   let on_zoomend _event =
@@ -83,9 +79,7 @@ module Leaflet = struct
     match
       Brr_io.Storage.set_item storage (Jstr.of_string "zoom") (Jv.to_jstr zoom)
     with
-    | (exception Jv.Error _)
-    | Error _ ->
-      failwith "can't set latlng storage"
+    | (exception Jv.Error _) | Error _ -> failwith "can't set latlng storage"
     | Ok () -> ()
 
   let () =

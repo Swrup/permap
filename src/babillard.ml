@@ -212,8 +212,7 @@ let () =
   if
     List.exists Result.is_error
       (List.map (fun query -> Db.exec query ()) tables)
-  then
-    Dream.error (fun log -> log "can't create table")
+  then Dream.error (fun log -> log "can't create table")
 
 let parse_image image =
   match image with
@@ -230,12 +229,9 @@ let parse_image image =
     in
     match image with
     | _, image_content, alt ->
-      if not (is_valid_image image_content) then
-        Error "invalid image"
-      else if String.length alt > 1000 then
-        Error "Image description too long"
-      else
-        Ok (Some image) )
+      if not (is_valid_image image_content) then Error "invalid image"
+      else if String.length alt > 1000 then Error "Image description too long"
+      else Ok (Some image) )
 
 (*TODO switch to markdown !*)
 (* insert html into the comment, and keep tracks of citations :
@@ -255,8 +251,7 @@ let parse_comment comment =
       | Some _ ->
         let new_w = Format.sprintf {|<a href="#%s">%s</a>|} sub_w w in
         (new_w, Some sub_w)
-    else
-      (w, None)
+    else (w, None)
   in
   let handle_line l =
     let trim_w = String.trim l in
@@ -366,16 +361,13 @@ let build_reply ~comment ?image ~tags ?parent_id nick =
   let id = Uuidm.to_string (Uuidm.v4_gen random_state ()) in
   (* parent_id is None if this reply is supposed to be a new thread *)
   let parent_id = Option.value parent_id ~default:id in
-  if Option.is_none (Uuidm.of_string parent_id) then
-    Error "invalid thread id"
-  else if String.length comment > 10000 then
-    Error "invalid comment"
+  if Option.is_none (Uuidm.of_string parent_id) then Error "invalid thread id"
+  else if String.length comment > 10000 then Error "invalid comment"
   else
     match parse_image image with
     | Error e -> Error e
     | Ok image ->
-      if String.length tags > 1000 then
-        Error "invalid tags"
+      if String.length tags > 1000 then Error "invalid tags"
       else
         (* TODO latlng validation? *)
         let tag_list = Str.split (Str.regexp " +") tags in
@@ -399,10 +391,8 @@ let build_op ~comment ?image ~tags ~subject ~lat ~lng nick =
   let subject = Dream.html_escape subject in
   (* TODO latlng validation? *)
   let is_valid_latlng = true in
-  if not is_valid_latlng then
-    Error "Invalid coordinate"
-  else if String.length subject > 600 then
-    Error "Invalid subject"
+  if not is_valid_latlng then Error "Invalid coordinate"
+  else if String.length subject > 600 then Error "Invalid subject"
   else
     let thread_data = { subject; lng; lat } in
     let* reply =
