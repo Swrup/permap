@@ -31,25 +31,17 @@ let image_click post_image event =
 
 let render_time date_span =
   log "render time@.";
-  let unix_time =
+  let t =
     float_of_int
       (Jv.to_int
          (Jv.call date_span "getAttribute" [| Jv.of_string "data-time" |]) )
   in
-  (*use float because int overflow*)
-  let time_millisecs = 1000.0 *. unix_time in
-  let date_constructor = Jv.get Jv.global "Date" in
-  let date = Jv.new' date_constructor [| Jv.of_float time_millisecs |] in
-  let year = Jv.to_int @@ Jv.call date "getFullYear" [||] in
-  (*the month is 0-indexed*)
-  let month = (Jv.to_int @@ Jv.call date "getMonth" [||]) + 1 in
-  let day = Jv.to_int @@ Jv.call date "getDate" [||] in
-  let hour = Jv.to_int @@ Jv.call date "getHours" [||] in
-  let min = Jv.to_int @@ Jv.call date "getMinutes" [||] in
-  let date_string =
-    Format.sprintf "%02d-%02d-%02d %02d:%02d" year month day hour min
+  let t = Unix.localtime t in
+  let date =
+    Format.sprintf "%02d-%02d-%02d %02d:%02d" (1900 + t.tm_year) (1 + t.tm_mon)
+      t.tm_mday t.tm_hour t.tm_min
   in
-  ignore @@ Jv.set date_span "innerHTML" (Jv.of_string date_string)
+  ignore @@ Jv.set date_span "innerHTML" (Jv.of_string date)
 
 let make_pretty _ =
   log "make pretty@.";

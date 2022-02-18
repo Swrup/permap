@@ -11,4 +11,4 @@ let ( let^ ) o f =
   | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
   | Ok x -> f x
 
-let ( let* ) o f = match o with Error e -> Error e | Ok x -> f x
+let ( let* ) o f = Result.fold ~ok:f ~error:Result.error o

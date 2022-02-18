@@ -217,21 +217,20 @@ let () =
 let parse_image image =
   match image with
   | None -> Ok None
-  | Some image -> (
-    let image =
-      match image with
-      | Some image_name, image_content, alt ->
-        (Dream.html_escape image_name, image_content, Dream.html_escape alt)
-      | None, image_content, alt ->
+  | Some (name, content, alt) ->
+    let name =
+      match name with
+      | Some name -> Dream.html_escape name
+      | None ->
         (* make up random name if no name was given *)
-        let image_name = Uuidm.to_string (Uuidm.v4_gen random_state ()) in
-        (image_name, image_content, Dream.html_escape alt)
+        Uuidm.to_string (Uuidm.v4_gen random_state ())
     in
-    match image with
-    | _, image_content, alt ->
-      if not (is_valid_image image_content) then Error "invalid image"
-      else if String.length alt > 1000 then Error "Image description too long"
-      else Ok (Some image) )
+    if not (is_valid_image content) then
+      Error "invalid image"
+    else if String.length alt > 1000 then
+      Error "Image description too long"
+    else
+      Ok (Some (name, content, alt))
 
 (*TODO switch to markdown !*)
 (* insert html into the comment, and keep tracks of citations :
