@@ -29,13 +29,6 @@ module Q = struct
       "CREATE TABLE IF NOT EXISTS post_user (post_id TEXT, nick TEXT, PRIMARY \
        KEY(post_id), FOREIGN KEY(nick) REFERENCES user(nick));"
 
-  (* post_id -> OP's post_id *)
-  let create_post_parent_table =
-    Caqti_request.exec Caqti_type.unit
-      "CREATE TABLE IF NOT EXISTS post_parent (post_id TEXT, parent_id TEXT, \
-       FOREIGN KEY(post_id) REFERENCES post_user(post_id),\n\
-      \       FOREIGN KEY(parent_id) REFERENCES post_user(post_id));"
-
   let create_thread_table =
     Caqti_request.exec Caqti_type.unit
       "CREATE TABLE IF NOT EXISTS threads (thread_id TEXT, post_id TEXT,\n\
@@ -171,7 +164,7 @@ module Q = struct
 
   let get_post_citations =
     Caqti_request.collect Caqti_type.string Caqti_type.string
-      "SELECT post_id FROM post_citations WHERE reply_id=?;"
+      "SELECT post_id FROM post_citations WHERE post_id=?;"
 
   let get_post_replies =
     Caqti_request.collect Caqti_type.string Caqti_type.string
@@ -185,9 +178,13 @@ module Q = struct
     Caqti_request.find Caqti_type.string Caqti_type.int
       "SELECT COUNT(post_id) FROM threads WHERE thread_id=?;"
 
-  let get_thread =
+  let get_is_thread =
     Caqti_request.find Caqti_type.string Caqti_type.string
       "SELECT thread_id FROM threads WHERE thread_id=? LIMIT 1;"
+
+  let get_post_thread =
+    Caqti_request.find Caqti_type.string Caqti_type.string
+      "SELECT thread_id FROM threads WHERE post_id=? LIMIT 1;"
 
   let get_post_subject =
     Caqti_request.find_opt Caqti_type.string Caqti_type.string
@@ -206,7 +203,6 @@ end
 let () =
   let tables =
     [ Q.create_post_user_table
-    ; Q.create_post_parent_table
     ; Q.create_thread_table
     ; Q.create_post_replies_table
     ; Q.create_post_citations_table
@@ -430,6 +426,21 @@ let make_op ~comment ?image ~tags ~subject ~lat ~lng nick =
   | None -> upload_post op
   | Some (_image_info, image_content) -> upload_post ~image_content op
 
-let get_post_image_content post_id =
-  let^? content = Db.find_opt Q.get_post_image_content post_id in
+let get_post_image_content id =
+  let^? content = Db.find_opt Q.get_post_image_content id in
   Ok content
+
+let get_post id =
+  let^ parent_id = Db.find Q.get_post_thread id in
+  let^ nick = Db.find Q.get_post_nick id in
+  let^ comment = Db.find Q.get_post_comment id in
+  let^ date = Db.find Q.get_post_date id in
+  let^ image_info = Db.find_opt Q.get_post_image_info id in
+
+  let^ tags = Db.collect_list Q.get_post_tags id in
+  let^ replies = Db.collect_list Q.get_post_replies id in
+  let^ citations = Db.collect_list Q.get_post_citations id in
+  let reply =
+    { id; parent_id; date; nick; comment; image_info; tags; replies; citations }
+  in
+  Ok reply
