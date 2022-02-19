@@ -1,5 +1,7 @@
 let f nick bio request =
   <h1><%s  Format.sprintf "Hello %s !" nick %></h1>
+  <p>Check your <a href="/user/<%s nick %>">public profile rendering</a>.</p>
+  <h2>Edit profile</h2>
   <%s! Dream.form_tag ~action:"/profile" request %>
     <div class="mb-3">
       <label for="bio" class="form-label">Bio</label>
