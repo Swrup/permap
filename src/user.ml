@@ -135,7 +135,7 @@ let public_profile request =
       </div>
     </div>
 |}
-      nick (Dream.html_escape bio) nick
+      nick bio nick
   in
   Ok user_info
 
