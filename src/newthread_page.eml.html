@@ -14,6 +14,8 @@ let f request =
       <div id="map"></div>
       <br />
         <button class="btn btn-primary" id="geolocalize">Geolocalize me</button>
+        <br />
+        <br />
     </div>
     <div class="col-md-6" id="newthread-form">
       <div class="postForm">
@@ -23,18 +25,19 @@ let f request =
 
           <label for="subject" id="subject-label" class="form-label">Subject</label>
           <input name="subject" type="text" class="form-control" id="subject" aria-labelledby="subject-label"></input>
-
+          <br />
           <label for="thread-comment" id="thread-comment-label" class="form-label">Comment</label>
           <textarea name="thread-comment" type="text" class="form-control" id="thread-comment" aria-labelledby="thread-comment-label"></textarea>
-
+          <br />
           <label for="tags" id="tags-label" class="form-label">Tags</label>
           <input name="tags" type="text" class="form-control" id="tags" aria-labelledby="tags-label"></input>
-
+          <br />
           <label for="file" id="file-label" class="form-label">Picture:</label>
           <input id="file" name="file" aria-describedby="file-label" type="file" accept="image/*">
-
+          <br />
           <label for="alt" id="alt-label" class="form-label">Image description:</label>
           <input name="alt" type="text" class="form-control" id="alt" aria-labelledby="alt-label"></input>
+          <br />
           <button type="submit" class="btn btn-primary">Make Thread</button>
         </form>
       </div>
