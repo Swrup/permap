@@ -130,7 +130,7 @@ module Marker = struct
     let thread_preview_div = Jv.get Jv.global "thread_preview_div" in
     ignore @@ Jv.set thread_preview_div "innerHTML" thread_preview;
     let thread_link = Jv.get Jv.global "thread_link" in
-    let link = Format.sprintf "/%s" thread_id in
+    let link = Format.sprintf "/thread/%s" thread_id in
     ignore @@ Jv.set thread_link "href" (Jv.of_string link);
     ignore @@ Jv.set thread_link "innerText" (Jv.of_string "[View Thread]");
     let _ = Js_pretty_post.make_pretty () in

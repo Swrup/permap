@@ -157,7 +157,7 @@ let newthread_post request =
         in
         match res with
         | Ok thread_id ->
-          let adress = Format.asprintf "/%s" thread_id in
+          let adress = Format.asprintf "/thread/%s" thread_id in
           Dream.respond ~status:`See_Other
             ~headers:[ ("Location", adress) ]
             "Your thread was posted!"
@@ -206,7 +206,7 @@ let reply_post request =
       in
       match res with
       | Ok post_id ->
-        let adress = Format.sprintf "/%s#%s" parent_id post_id in
+        let adress = Format.sprintf "/thread/%s#%s" parent_id post_id in
         Dream.respond ~status:`See_Other
           ~headers:[ ("Location", adress) ]
           "Your reply was posted!"
@@ -238,12 +238,15 @@ let routes =
   ; get_ "/user" user
   ; get_ "/user/:user" user_profile
   ; get_ "/user/:user/avatar" avatar_image
+  ; get_ "/thread/:thread_id" thread_get
+  ; post "/thread/:thread_id" reply_post
   ]
-  @ ( if App.open_registration then
-      [ get_ "/register" register_get; post "/register" register_post ]
-    else [] )
-  @ (* TODO: rename these two routes *)
-  [ get_ "/:thread_id" thread_get; post "/:thread_id" reply_post ]
+  @
+  if App.open_registration then
+    [ get_ "/register" register_get; post "/register" register_post ]
+  else []
+
+
 
 let () =
   let logger = if App.log then Dream.logger else Fun.id in

@@ -6,7 +6,7 @@ let f thread_view thread_id request =
 
 % | Some _ ->
     <div class="post-form">
-        <%s! Dream.form_tag ~action:( Format.sprintf "/%s" thread_id)
+        <%s! Dream.form_tag ~action:( Format.sprintf "/thread/%s" thread_id)
         ~enctype:`Multipart_form_data request %>
 
         <label for="reply-comment" id="reply-comment-label" class="form-label">Comment:</label>
