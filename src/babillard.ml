@@ -182,6 +182,10 @@ module Q = struct
     Caqti_request.find Caqti_type.string Caqti_type.string
       "SELECT thread_id FROM threads WHERE thread_id=? LIMIT 1;"
 
+  let get_is_post =
+    Caqti_request.find Caqti_type.string Caqti_type.string
+      "SELECT post_id FROM post_user WHERE post_id=? LIMIT 1;"
+
   let get_post_thread =
     Caqti_request.find Caqti_type.string Caqti_type.string
       "SELECT thread_id FROM threads WHERE post_id=? LIMIT 1;"
@@ -444,3 +448,10 @@ let get_post id =
     { id; parent_id; date; nick; comment; image_info; tags; replies; citations }
   in
   Ok reply
+
+let thread_exists id =
+  match Db.find Q.get_is_thread id with Error _ -> false | Ok _ -> true
+
+(* true if post is an op too *)
+let post_exists id =
+  match Db.find Q.get_is_post id with Error _ -> false | Ok _ -> true

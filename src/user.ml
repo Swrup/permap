@@ -118,8 +118,7 @@ let list () =
        )
        users )
 
-let public_profile request =
-  let nick = Dream.param request "user" in
+let public_profile nick =
   let^? nick, _password, _email, (bio, _) = Db.find_opt Q.get_user nick in
   let user_info =
     Format.sprintf
@@ -169,3 +168,6 @@ let upload_avatar files nick =
       let^ () = Db.exec Q.upload_avatar (content, nick) in
       Ok ()
   | _files -> Error "More than one file provided"
+
+let exists nick =
+  match Db.find_opt Q.get_user nick with Error _ -> false | Ok _ -> true

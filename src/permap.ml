@@ -52,13 +52,16 @@ let login_post request =
     render_unsafe (Login.f ~nick ~password request) request
   | _ -> assert false
 
-let user request =
+let users request =
   render_unsafe (Result.fold ~ok:Fun.id ~error:Fun.id (User.list ())) request
 
 let user_profile request =
-  render_unsafe
-    (Result.fold ~ok:Fun.id ~error:Fun.id (User.public_profile request))
-    request
+  let nick = Dream.param request "user" in
+  if User.exists nick then
+    render_unsafe
+      (Result.fold ~ok:Fun.id ~error:Fun.id (User.public_profile nick))
+      request
+  else Dream.respond ~status:`Not_Found "404: User does not exists"
 
 let logout request =
   let _ = Dream.invalidate_session request in
@@ -101,22 +104,26 @@ let profile_post request =
 
 let avatar_image request =
   let nick = Dream.param request "user" in
-  let avatar = User.get_avatar nick in
-  match avatar with
-  | Ok (Some avatar) ->
-    Dream.respond ~headers:[ ("Content-Type", "image") ] avatar
-  | Ok None | Error _ -> (
-    match Content.read "/assets/img/default_avatar.png" with
-    | None -> Dream.empty `Not_Found
-    | Some avatar -> Dream.respond ~headers:[ ("Content-Type", "image") ] avatar
-    )
+  if User.exists nick then
+    let avatar = User.get_avatar nick in
+    match avatar with
+    | Ok (Some avatar) ->
+      Dream.respond ~headers:[ ("Content-Type", "image") ] avatar
+    | Ok None | Error _ -> (
+      match Content.read "/assets/img/default_avatar.png" with
+      | None -> Dream.empty `Not_Found
+      | Some avatar ->
+        Dream.respond ~headers:[ ("Content-Type", "image") ] avatar )
+  else Dream.respond ~status:`Not_Found "404: User does not exists"
 
 let post_image request =
   let post_id = Dream.param request "post_id" in
-  let image = Babillard.get_post_image_content post_id in
-  match image with
-  | Ok image -> Dream.respond ~headers:[ ("Content-Type", "image") ] image
-  | Error _ -> Dream.empty `Not_Found
+  if Babillard.post_exists post_id then
+    let image = Babillard.get_post_image_content post_id in
+    match image with
+    | Ok image -> Dream.respond ~headers:[ ("Content-Type", "image") ] image
+    | Error _ -> Dream.empty `Not_Found
+  else Dream.respond ~status:`Not_Found "404: Image does not exists"
 
 let markers request =
   let markers = Pp_babillard.get_markers () in
@@ -169,19 +176,13 @@ let newthread_post request =
 
 let thread_get request =
   let thread_id = Dream.param request "thread_id" in
-  let thread_view = Pp_babillard.view_thread thread_id in
-  match thread_view with
-  | Error e -> render_unsafe e request
-  | Ok thread_view ->
-    render_unsafe (Thread_page.f thread_view thread_id request) request
-
-(* get thread view but not wrapped in template, so we can display it on /babillard*)
-let thread_view request =
-  let thread_id = Dream.param request "thread_id" in
-  let thread_view = Pp_babillard.view_thread thread_id in
-  match thread_view with
-  | Error e -> render_unsafe e request
-  | Ok thread_view -> Dream.html (Thread_page.f thread_view thread_id request)
+  if Babillard.thread_exists thread_id then
+    let thread_view = Pp_babillard.view_thread thread_id in
+    match thread_view with
+    | Error e -> render_unsafe e request
+    | Ok thread_view ->
+      render_unsafe (Thread_page.f thread_view thread_id request) request
+  else Dream.respond ~status:`Not_Found "404: Thread not found"
 
 (*form to reply to a thread *)
 let reply_post request =
@@ -234,8 +235,7 @@ let routes =
   ; get_ "/post_pic/:post_id" post_image
   ; get_ "/profile" profile_get
   ; post "/profile" profile_post
-  ; get_ "/thread_view/:thread_id" thread_view
-  ; get_ "/user" user
+  ; get_ "/users" users
   ; get_ "/user/:user" user_profile
   ; get_ "/user/:user/avatar" avatar_image
   ; get_ "/thread/:thread_id" thread_get
@@ -246,7 +246,8 @@ let routes =
     [ get_ "/register" register_get; post "/register" register_post ]
   else []
 
-
+let not_found _ =
+  Dream.respond ~status:`Not_Found "404: This page does not exists!"
 
 let () =
   let logger = if App.log then Dream.logger else Fun.id in
