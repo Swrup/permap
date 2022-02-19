@@ -1,25 +1,32 @@
 (lang dune 2.8)
 
+(implicit_transitive_deps false)
+
 (name permap)
 
-(license AGPL-3.0-or-later) 
+(license AGPL-3.0-or-later)
 
-(authors "TODO")
+(authors "swrup <swrup@protonmail.com>" "Léo Andrès <contact@ndrs.fr>")
 
-(maintainers "TODO")
+(maintainers "Léo Andrès <contact@ndrs.fr>")
 
-;(source
-; (github TODO/permap))
+(source
+ (uri git+https://git.zapashcanon.fr/zapashcanon/permap.git))
+
+(homepage https://git.zapashcanon.fr/zapashcanon/permap)
+
+(bug_reports https://git.zapashcanon.fr/zapashcanon/permap/issues)
+
+(documentation https://doc.zapashcanon.fr/permap)
 
 (generate_opam_files true)
 
 (package
  (name permap)
  (synopsis "OCaml library/executable to TODO")
- (description
-  "permap is an OCaml library/executable to TODO.")
+ (description "permap is an OCaml library/executable to TODO.")
  (tags
-  (permap TODO TODO TODO TODO))
+  (permap forum map local-knownledge ecology permaculture plant))
  (depends
   (ocaml
    (>= 4.08))))

@@ -2,10 +2,15 @@
 opam-version: "2.0"
 synopsis: "OCaml library/executable to TODO"
 description: "permap is an OCaml library/executable to TODO."
-maintainer: ["TODO"]
-authors: ["TODO"]
+maintainer: ["Léo Andrès <contact@ndrs.fr>"]
+authors: ["swrup <swrup@protonmail.com>" "Léo Andrès <contact@ndrs.fr>"]
 license: "AGPL-3.0-or-later"
-tags: ["permap" "TODO" "TODO" "TODO" "TODO"]
+tags: [
+  "permap" "forum" "map" "local-knownledge" "ecology" "permaculture" "plant"
+]
+homepage: "https://git.zapashcanon.fr/zapashcanon/permap"
+doc: "https://doc.zapashcanon.fr/permap"
+bug-reports: "https://git.zapashcanon.fr/zapashcanon/permap/issues"
 depends: [
   "dune" {>= "2.8"}
   "ocaml" {>= "4.08"}
@@ -25,3 +30,4 @@ build: [
     "@doc" {with-doc}
   ]
 ]
+dev-repo: "git+https://git.zapashcanon.fr/zapashcanon/permap.git"
