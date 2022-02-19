@@ -37,11 +37,23 @@ let open_registration =
     | Error e -> failwith e
     | Ok "true" -> true
     | Ok "false" -> false
-    | Ok unknown ->
-      failwith
-      @@ Format.sprintf
-           "invalid value for `open_registration` in configuration file, \
-            expected `true` or `false` but got `%s`"
-           unknown )
+    | Ok _unknown ->
+      failwith "invalid `open_registration` value in configuration file" )
 
-let () = Dream.log "open_registration: %s" (Bool.to_string open_registration)
+let () = Dream.log "open_registration: %b" open_registration
+
+let port =
+  match Scfg.Query.get_dir "port" config with
+  | None -> 8080
+  | Some open_registration -> (
+    match Scfg.Query.get_param 0 open_registration with
+    | Error e -> failwith e
+    | Ok n -> (
+      try
+        let n = int_of_string n in
+        if n < 0 then raise (Invalid_argument "negative port number");
+        n
+      with Invalid_argument _msg ->
+        failwith "invalid `port` value in configuration file" ) )
+
+let () = Dream.log "port: %d" port
