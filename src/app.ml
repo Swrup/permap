@@ -57,3 +57,15 @@ let port =
         failwith "invalid `port` value in configuration file" ) )
 
 let () = Dream.log "port: %d" port
+
+let log =
+  match Scfg.Query.get_dir "log" config with
+  | None -> true
+  | Some open_registration -> (
+    match Scfg.Query.get_param 0 open_registration with
+    | Error e -> failwith e
+    | Ok "true" -> true
+    | Ok "false" -> false
+    | Ok _unknown -> failwith "invalid `log` value in configuration file" )
+
+let () = Dream.log "log: %b" log

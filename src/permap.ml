@@ -246,7 +246,8 @@ let routes =
   [ get_ "/:thread_id" thread_get; post "/:thread_id" reply_post ]
 
 let () =
-  Dream.run ~port:App.port @@ Dream.logger @@ Dream.cookie_sessions
+  let logger = if App.log then Dream.logger else Fun.id in
+  Dream.run ~port:App.port @@ logger @@ Dream.cookie_sessions
   (* this should replace memory/cookie sessions but it doesn't work :-(
      @@ Dream.sql_pool Db.db_uri
      @@ Dream.sql_sessions
