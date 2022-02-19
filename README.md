@@ -7,7 +7,7 @@ Permap's aim is to help people find friends with similar interests around them
 and build local communities.
 
 You can make threads with geographical coordinate, 
-this way you can find people near you doing interesting stuffs, 
+this way you can find people near you doing interesting things, 
 socialize with them and share local knowledge. 
 
 ## Permap's future
@@ -21,3 +21,8 @@ Instead of making threads with a simple (latitude * longitude) data,
 we want to be able to make threads on any OpenStreetMap's item/ActivityPub object 
 that can resolve to a geographical position.
 
+# License
+
+[AGPL-or-later]
+
+[AGPL-or-later]: ./LICENSE.md
