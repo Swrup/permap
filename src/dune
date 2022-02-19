@@ -18,6 +18,7 @@
   user
   user_profile)
  (libraries
+  yojson
   uuidm
   caqti.blocking
   caqti-driver-sqlite3

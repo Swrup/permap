@@ -190,20 +190,22 @@ let get_markers () =
   let markers = List.map Result.get_ok (List.filter Result.is_ok markers_res) in
 
   let pp_marker fmt (lat, lng, content, thread_id) =
-    Format.fprintf fmt
-      {|{
-  "type": "Feature",
-  "geometry": {
-    "type": "Point",
-    "coordinates": [%s,%s]
-  },
-  "properties": {
-    "content": "%s",
-    "thread_id": "%s"
-  }}|}
-      (* geojson use lng lat, and not lat lng*)
-      (Float.to_string lng)
-      (Float.to_string lat) (String.escaped content) thread_id
+    (* geojson use lng lat, and not lat lng*)
+    let json =
+      `Assoc
+        [ ("type", `String "Feature")
+        ; ( "geometry"
+          , `Assoc
+              [ ("type", `String "Point")
+              ; ("coordinates", `List [ `Float lng; `Float lat ])
+              ] )
+        ; ( "properties"
+          , `Assoc
+              [ ("content", `String content); ("thread_id", `String thread_id) ]
+          )
+        ]
+    in
+    Yojson.pretty_print fmt json
   in
   let markers =
     Format.asprintf "[%a]"
