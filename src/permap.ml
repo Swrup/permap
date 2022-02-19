@@ -100,7 +100,7 @@ let profile_post request =
         Dream.empty `Bad_Request ) )
 
 let avatar_image request =
-  let nick = Dream.param "user" request in
+  let nick = Dream.param request "user" in
   let avatar = User.get_avatar nick in
   match avatar with
   | Ok (Some avatar) ->
@@ -112,7 +112,7 @@ let avatar_image request =
     )
 
 let post_image request =
-  let post_id = Dream.param "post_id" request in
+  let post_id = Dream.param request "post_id" in
   let image = Babillard.get_post_image_content post_id in
   match image with
   | Ok image -> Dream.respond ~headers:[ ("Content-Type", "image") ] image
@@ -168,7 +168,7 @@ let newthread_post request =
       Dream.empty `Bad_Request )
 
 let thread_get request =
-  let thread_id = Dream.param "thread_id" request in
+  let thread_id = Dream.param request "thread_id" in
   let thread_view = Pp_babillard.view_thread thread_id in
   match thread_view with
   | Error e -> render_unsafe e request
@@ -177,7 +177,7 @@ let thread_get request =
 
 (* get thread view but not wrapped in template, so we can display it on /babillard*)
 let thread_view request =
-  let thread_id = Dream.param "thread_id" request in
+  let thread_id = Dream.param request "thread_id" in
   let thread_view = Pp_babillard.view_thread thread_id in
   match thread_view with
   | Error e -> render_unsafe e request
@@ -195,7 +195,7 @@ let reply_post request =
         ; ("reply-comment", [ (_, comment) ])
         ; ("tags", [ (_, tags) ])
         ] -> (
-      let parent_id = Dream.param "thread_id" request in
+      let parent_id = Dream.param request "thread_id" in
       let res =
         match file with
         | [] -> Babillard.make_reply ~comment ~tags ~parent_id nick
@@ -217,8 +217,7 @@ let reply_post request =
       Dream.empty `Bad_Request )
 
 let () =
-  Dream.run ~secret:"yolo" ~port:3696
-  @@ Dream.logger @@ Dream.cookie_sessions
+  Dream.run ~port:3696 @@ Dream.logger @@ Dream.cookie_sessions
   (* this should replace memory/cookie sessions but it doesn't work :-(
      @@ Dream.sql_pool Db.db_uri
      @@ Dream.sql_sessions
@@ -246,4 +245,3 @@ let () =
        ; Dream.post "/:thread_id" reply_post
        ; Dream.get "/img/:post_id" post_image
        ]
-  @@ Dream.not_found
