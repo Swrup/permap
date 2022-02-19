@@ -18,17 +18,18 @@
   user
   user_profile)
  (libraries
-  yojson
-  uuidm
+  bos
   caqti.blocking
   caqti-driver-sqlite3
-  bos
   directories
   dream
   emile
+  lambdasoup
   omd
   safepass
-  lambdasoup)
+  scfg
+  uuidm
+  yojson)
  (preprocess
   (pps lwt_ppx)))
 

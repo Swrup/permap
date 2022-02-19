@@ -216,32 +216,39 @@ let reply_post request =
     | `Wrong_session _ | `Wrong_content_type ->
       Dream.empty `Bad_Request )
 
+let routes =
+  (* this is just so that they're visually aligned *)
+  let get_ = Dream.get in
+  let post = Dream.post in
+
+  [ get_ "/" babillard_get
+  ; get_ "/about" about
+  ; get_ "/assets/**" (Dream.static ~loader:asset_loader "")
+  ; get_ "/img/:post_id" post_image
+  ; get_ "/login" login_get
+  ; post "/login" login_post
+  ; get_ "/logout" logout
+  ; get_ "/markers" markers
+  ; get_ "/new_thread" newthread_get
+  ; post "/new_thread" newthread_post
+  ; get_ "/post_pic/:post_id" post_image
+  ; get_ "/profile" profile_get
+  ; post "/profile" profile_post
+  ; get_ "/thread_view/:thread_id" thread_view
+  ; get_ "/user" user
+  ; get_ "/user/:user" user_profile
+  ; get_ "/user/:user/avatar" avatar_image
+  ]
+  @ ( if App.open_registration then
+      [ get_ "/register" register_get; post "/register" register_post ]
+    else [] )
+  @ (* TODO: rename these two routes *)
+  [ get_ "/:thread_id" thread_get; post "/:thread_id" reply_post ]
+
 let () =
   Dream.run ~port:3696 @@ Dream.logger @@ Dream.cookie_sessions
   (* this should replace memory/cookie sessions but it doesn't work :-(
      @@ Dream.sql_pool Db.db_uri
      @@ Dream.sql_sessions
   *)
-  @@ Dream.router
-       [ Dream.get "/assets/**" (Dream.static ~loader:asset_loader "")
-       ; Dream.get "/about" about
-       ; Dream.get "/register" register_get
-       ; Dream.post "/register" register_post
-       ; Dream.get "/login" login_get
-       ; Dream.post "/login" login_post
-       ; Dream.get "/user" user
-       ; Dream.get "/user/:user" user_profile
-       ; Dream.get "/user/:user/avatar" avatar_image
-       ; Dream.get "/logout" logout
-       ; Dream.get "/profile" profile_get
-       ; Dream.post "/profile" profile_post
-       ; Dream.get "/thread_view/:thread_id" thread_view
-       ; Dream.get "/markers" markers
-       ; Dream.get "/post_pic/:post_id" post_image
-       ; Dream.get "/" babillard_get
-       ; Dream.get "/new_thread" newthread_get
-       ; Dream.post "/new_thread" newthread_post
-       ; Dream.get "/:thread_id" thread_get
-       ; Dream.post "/:thread_id" reply_post
-       ; Dream.get "/img/:post_id" post_image
-       ]
+  @@ Dream.router routes

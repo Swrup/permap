@@ -28,9 +28,11 @@ let render_unsafe ~title ~content request =
                       <ul class="navbar-nav ms-auto mb-2 mb-md-0">
 % begin match Dream.session "nick" request with
 % | None ->
+%   begin if App.open_registration then
                           <li class="nav-item">
                               <a class="nav-link" href="/register">Register</a>
                           </li>
+%   end;
                           <li class="nav-item">
                               <a class="nav-link" href="/login">Login</a>
                           </li>
