@@ -169,5 +169,4 @@ let upload_avatar files nick =
       Ok ()
   | _files -> Error "More than one file provided"
 
-let exists nick =
-  match Db.find_opt Q.get_user nick with Error _ -> false | Ok _ -> true
+let exists nick = Result.is_ok (Db.find_opt Q.get_user nick)

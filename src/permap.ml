@@ -111,7 +111,7 @@ let avatar_image request =
       Dream.respond ~headers:[ ("Content-Type", "image") ] avatar
     | Ok None | Error _ -> (
       match Content.read "/assets/img/default_avatar.png" with
-      | None -> Dream.empty `Not_Found
+      | None -> failwith "can't find default avatar"
       | Some avatar ->
         Dream.respond ~headers:[ ("Content-Type", "image") ] avatar )
   else Dream.respond ~status:`Not_Found "404: User does not exists"
@@ -178,10 +178,12 @@ let thread_get request =
   let thread_id = Dream.param request "thread_id" in
   if Babillard.thread_exists thread_id then
     let thread_view = Pp_babillard.view_thread thread_id in
-    match thread_view with
-    | Error e -> render_unsafe e request
-    | Ok thread_view ->
-      render_unsafe (Thread_page.f thread_view thread_id request) request
+    let res =
+      match thread_view with
+      | Error e -> e
+      | Ok thread_view -> Thread_page.f thread_view thread_id request
+    in
+    render_unsafe res request
   else Dream.respond ~status:`Not_Found "404: Thread not found"
 
 (*form to reply to a thread *)
@@ -245,9 +247,6 @@ let routes =
   if App.open_registration then
     [ get_ "/register" register_get; post "/register" register_post ]
   else []
-
-let not_found _ =
-  Dream.respond ~status:`Not_Found "404: This page does not exists!"
 
 let () =
   let logger = if App.log then Dream.logger else Fun.id in

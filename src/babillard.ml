@@ -449,9 +449,7 @@ let get_post id =
   in
   Ok reply
 
-let thread_exists id =
-  match Db.find Q.get_is_thread id with Error _ -> false | Ok _ -> true
+let thread_exists id = Result.is_ok (Db.find Q.get_is_thread id)
 
 (* true if post is an op too *)
-let post_exists id =
-  match Db.find Q.get_is_post id with Error _ -> false | Ok _ -> true
+let post_exists id = Result.is_ok (Db.find Q.get_is_post id)
