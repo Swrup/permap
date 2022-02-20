@@ -22,6 +22,14 @@
   (pps js_of_ocaml-ppx)))
 
 (executable
+ (name js_catalog)
+ (modules js_catalog)
+ (libraries js_of_ocaml brr js_pretty_post)
+ (modes js)
+ (preprocess
+  (pps js_of_ocaml-ppx)))
+
+(executable
  (name js_babillard)
  (modules js_babillard)
  (libraries js_of_ocaml brr js_map)

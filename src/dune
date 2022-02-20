@@ -4,6 +4,7 @@
   app
   babillard
   babillard_page
+  catalog_page
   bindings
   content
   db
@@ -34,6 +35,12 @@
   yojson)
  (preprocess
   (pps lwt_ppx)))
+
+(rule
+ (targets catalog_page.ml)
+ (deps catalog_page.eml.html)
+ (action
+  (run dream_eml %{deps} --workspace %{workspace_root})))
 
 (rule
  (targets template.ml)
@@ -81,6 +88,7 @@
  (target content.ml)
  (deps
   (source_tree content)
+  (file content/assets/js/js_catalog.js)
   (file content/assets/js/js_babillard.js)
   (file content/assets/js/js_newthread.js)
   (file content/assets/js/js_thread.js))

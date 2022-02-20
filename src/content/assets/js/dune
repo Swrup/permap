@@ -1,4 +1,13 @@
 (rule
+ (target js_catalog.js)
+ (deps
+  (file ../../../js/js_catalog.bc.js))
+ (action
+  (with-stdout-to
+   %{target}
+   (cat ../../../js/js_catalog.bc.js))))
+
+(rule
  (target js_babillard.js)
  (deps
   (file ../../../js/js_babillard.bc.js))

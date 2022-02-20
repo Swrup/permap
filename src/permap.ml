@@ -64,6 +64,12 @@ let login_post request =
   | `Wrong_session _ | `Expired _ | `Wrong_content_type ->
     Dream.empty `Bad_Request
 
+let catalog request =
+  let catalog_content =
+    Result.fold ~ok:Fun.id ~error:Fun.id (Pp_babillard.catalog_content ())
+  in
+  render_unsafe (Catalog_page.f catalog_content) request
+
 let user request =
   render_unsafe (Result.fold ~ok:Fun.id ~error:Fun.id (User.list ())) request
 
@@ -266,6 +272,7 @@ let routes =
   ; get_ "/user/:user/avatar" avatar_image
   ; get_ "/thread/:thread_id" thread_get
   ; post "/thread/:thread_id" reply_post
+  ; get_ "/catalog" catalog
   ]
   @
   if App.open_registration then

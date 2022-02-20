@@ -113,7 +113,7 @@ let view_post ?is_thread_preview id =
 
 let preview_thread thread_id =
   let* post = view_post ~is_thread_preview:() thread_id in
-  let^? subject = Db.find_opt Q.get_post_subject thread_id in
+  let^? subject, _lat, _lng = Db.find_opt Q.get_thread_info thread_id in
   let thread_preview =
     Format.sprintf
       {|
@@ -128,9 +128,23 @@ let preview_thread thread_id =
   in
   Ok thread_preview
 
+let catalog_content () =
+  Format.printf "catalog_content@.";
+  let^ threads = Db.collect_list Q.get_threads () in
+  let res_previews = List.map preview_thread threads in
+  let res_opt = List.find_opt Result.is_error res_previews in
+  if Option.is_some res_opt then Option.get res_opt
+  else
+    let previews = List.map Result.get_ok res_previews in
+    Ok
+      (Format.asprintf "%a"
+         (Format.pp_print_list ~pp_sep:Format.pp_print_space
+            Format.pp_print_string )
+         previews )
+
 let view_thread thread_id =
   let^ _is_thread = Db.find Q.get_is_thread thread_id in
-  let^? subject = Db.find_opt Q.get_post_subject thread_id in
+  let^? subject, _lat, _lng = Db.find_opt Q.get_thread_info thread_id in
   let^ thread_posts = Db.collect_list Q.get_thread_posts thread_id in
   (*order by date *)
   let dates = List.map (Db.find Q.get_post_date) thread_posts in
@@ -177,41 +191,50 @@ let view_thread thread_id =
       Ok thread_view )
 
 let get_markers () =
-  let^ thread_id_list = Db.collect_list Q.get_threads () in
-  let markers_res =
-    List.map
-      (fun thread_id ->
-        let^? lat, lng = Db.find_opt Q.get_post_gps thread_id in
-        match preview_thread thread_id with
-        | Ok content -> Ok (lat, lng, content, thread_id)
-        | Error e -> Error e )
-      thread_id_list
-  in
-  let markers = List.map Result.get_ok (List.filter Result.is_ok markers_res) in
+  let^ threads = Db.collect_list Q.get_threads () in
+  let res_previews = List.map preview_thread threads in
+  let res_infos = List.map (Db.find Q.get_thread_info) threads in
 
-  let pp_marker fmt (lat, lng, content, thread_id) =
-    (* geojson use lng lat, and not lat lng*)
-    let json =
-      `Assoc
-        [ ("type", `String "Feature")
-        ; ( "geometry"
-          , `Assoc
-              [ ("type", `String "Point")
-              ; ("coordinates", `List [ `Float lng; `Float lat ])
-              ] )
-        ; ( "properties"
-          , `Assoc
-              [ ("content", `String content); ("thread_id", `String thread_id) ]
-          )
-        ]
+  let res_previews_opt = List.find_opt Result.is_error res_previews in
+  let res_info_opt = List.find_opt Result.is_error res_infos in
+  if Option.is_some res_previews_opt then Option.get res_previews_opt
+  else if Option.is_some res_info_opt then
+    Error
+      (Result.fold
+         ~ok:(assert false)
+         ~error:Caqti_error.show (Option.get res_info_opt) )
+  else
+    let previews = List.map Result.get_ok res_previews in
+    let infos = List.map Result.get_ok res_infos in
+    let previews_infos = List.combine previews infos in
+    let previews_infos_ids = List.combine previews_infos threads in
+
+    let pp_marker fmt lat lng content thread_id =
+      (* geojson use lng lat, and not lat lng*)
+      let json =
+        `Assoc
+          [ ("type", `String "Feature")
+          ; ( "geometry"
+            , `Assoc
+                [ ("type", `String "Point")
+                ; ("coordinates", `List [ `Float lng; `Float lat ])
+                ] )
+          ; ( "properties"
+            , `Assoc
+                [ ("content", `String content)
+                ; ("thread_id", `String thread_id)
+                ] )
+          ]
+      in
+      Yojson.pretty_print fmt json
     in
-    Yojson.pretty_print fmt json
-  in
-  let markers =
-    Format.asprintf "[%a]"
-      (Format.pp_print_list
-         ~pp_sep:(fun fmt () -> Format.fprintf fmt ",")
-         pp_marker )
-      markers
-  in
-  Ok markers
+
+    let markers =
+      Format.asprintf "[%a]"
+        (Format.pp_print_list
+           ~pp_sep:(fun fmt () -> Format.fprintf fmt ",")
+           (fun fmt ((preview, (_sub, lat, lng)), id) ->
+             pp_marker fmt lat lng preview id ) )
+        previews_infos_ids
+    in
+    Ok markers

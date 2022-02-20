@@ -29,11 +29,19 @@ module Q = struct
       "CREATE TABLE IF NOT EXISTS post_user (post_id TEXT, nick TEXT, PRIMARY \
        KEY(post_id), FOREIGN KEY(nick) REFERENCES user(nick));"
 
-  let create_thread_table =
+  (* one row for each thread, with thread's data *)
+  let create_thread_info_table =
     Caqti_request.exec Caqti_type.unit
-      "CREATE TABLE IF NOT EXISTS threads (thread_id TEXT, post_id TEXT,\n\
-      \         FOREIGN KEY(thread_id) REFERENCES post_user(post_id),\n\
-      \         FOREIGN KEY(post_id) REFERENCES post_user(post_id));"
+      "CREATE TABLE IF NOT EXISTS thread_info (thread_id TEXT, subject TEXT, \
+       lat FLOAT, lng FLOAT, FOREIGN KEY(thread_id) REFERENCES \
+       post_user(post_id));"
+
+  (* map thread and reply to the thread *)
+  let create_thread_post_table =
+    Caqti_request.exec Caqti_type.unit
+      "CREATE TABLE IF NOT EXISTS thread_post (thread_id TEXT, post_id TEXT,\n\
+      \               FOREIGN KEY(thread_id) REFERENCES post_user(post_id),\n\
+      \               FOREIGN KEY(post_id) REFERENCES post_user(post_id));"
 
   let create_post_replies_table =
     Caqti_request.exec Caqti_type.unit
@@ -67,16 +75,6 @@ module Q = struct
       "CREATE TABLE IF NOT EXISTS image_content (post_id TEXT,image_content \
        TEXT, FOREIGN KEY(post_id) REFERENCES post_user(post_id));"
 
-  let create_post_gps_table =
-    Caqti_request.exec Caqti_type.unit
-      "CREATE TABLE IF NOT EXISTS post_gps (post_id TEXT, lat FLOAT, lng FLOAT ,\n\
-      \       FOREIGN KEY(post_id) REFERENCES post_user(post_id));"
-
-  let create_post_subject_table =
-    Caqti_request.exec Caqti_type.unit
-      "CREATE TABLE IF NOT EXISTS post_subject (post_id TEXT, subject TEXT, \
-       FOREIGN KEY(post_id) REFERENCES post_user(post_id));"
-
   let create_post_tags_table =
     Caqti_request.exec Caqti_type.unit
       "CREATE TABLE IF NOT EXISTS post_tags (post_id TEXT, tag TEXT, FOREIGN \
@@ -87,10 +85,15 @@ module Q = struct
       Caqti_type.(tup2 string string)
       "INSERT INTO post_user VALUES (?,?);"
 
-  let upload_post_gps =
+  let upload_thread_info =
     Caqti_request.exec
-      Caqti_type.(tup3 string float float)
-      "INSERT INTO post_gps VALUES (?,?,?);"
+      Caqti_type.(tup4 string string float float)
+      "INSERT INTO thread_info VALUES (?,?,?,?);"
+
+  let upload_thread_post =
+    Caqti_request.exec
+      Caqti_type.(tup2 string string)
+      "INSERT INTO thread_post VALUES (?,?);"
 
   let upload_image_info =
     Caqti_request.exec
@@ -112,11 +115,6 @@ module Q = struct
       Caqti_type.(tup2 string string)
       "INSERT INTO post_comment VALUES (?,?);"
 
-  let upload_post_subject =
-    Caqti_request.exec
-      Caqti_type.(tup2 string string)
-      "INSERT INTO post_subject VALUES (?,?);"
-
   let upload_post_tag =
     Caqti_request.exec
       Caqti_type.(tup2 string string)
@@ -126,16 +124,6 @@ module Q = struct
     Caqti_request.exec
       Caqti_type.(tup2 string int)
       "INSERT INTO post_date VALUES (?,?);"
-
-  let upload_to_thread =
-    Caqti_request.exec
-      Caqti_type.(tup2 string string)
-      "INSERT INTO threads VALUES (?,?);"
-
-  let upload_post_parent =
-    Caqti_request.exec
-      Caqti_type.(tup2 string string)
-      "INSERT INTO post_parent VALUES (?,?);"
 
   let get_post_nick =
     Caqti_request.find Caqti_type.string Caqti_type.string
@@ -172,15 +160,15 @@ module Q = struct
 
   let get_thread_posts =
     Caqti_request.collect Caqti_type.string Caqti_type.string
-      "SELECT post_id FROM threads WHERE thread_id=?;"
+      "SELECT post_id FROM thread_post WHERE thread_id=?;"
 
   let count_thread_posts =
     Caqti_request.find Caqti_type.string Caqti_type.int
-      "SELECT COUNT(post_id) FROM threads WHERE thread_id=?;"
+      "SELECT COUNT(post_id) FROM thread_post WHERE thread_id=?;"
 
   let get_is_thread =
     Caqti_request.find Caqti_type.string Caqti_type.string
-      "SELECT thread_id FROM threads WHERE thread_id=? LIMIT 1;"
+      "SELECT thread_id FROM thread_info WHERE thread_id=? LIMIT 1;"
 
   let get_is_post =
     Caqti_request.find Caqti_type.string Caqti_type.string
@@ -188,34 +176,29 @@ module Q = struct
 
   let get_post_thread =
     Caqti_request.find Caqti_type.string Caqti_type.string
-      "SELECT thread_id FROM threads WHERE post_id=? LIMIT 1;"
+      "SELECT thread_id FROM thread_post WHERE post_id=? LIMIT 1;"
 
-  let get_post_subject =
-    Caqti_request.find_opt Caqti_type.string Caqti_type.string
-      "SELECT subject FROM post_subject WHERE post_id=?;"
-
-  let get_post_gps =
-    Caqti_request.find_opt Caqti_type.string
-      Caqti_type.(tup2 float float)
-      "SELECT lat, lng FROM post_gps WHERE post_id=?;"
+  let get_thread_info =
+    Caqti_request.find Caqti_type.string
+      Caqti_type.(tup3 string float float)
+      "SELECT subject,lat,lng FROM thread_info WHERE thread_id=?;"
 
   let get_threads =
     Caqti_request.collect Caqti_type.unit Caqti_type.string
-      "SELECT thread_id FROM threads;"
+      "SELECT thread_id FROM thread_info;"
 end
 
 let () =
   let tables =
     [ Q.create_post_user_table
-    ; Q.create_thread_table
+    ; Q.create_thread_info_table
+    ; Q.create_thread_post_table
     ; Q.create_post_replies_table
     ; Q.create_post_citations_table
     ; Q.create_post_date_table
     ; Q.create_post_comment_table
     ; Q.create_image_info_table
     ; Q.create_image_content_table
-    ; Q.create_post_gps_table
-    ; Q.create_post_subject_table
     ; Q.create_post_tags_table
     ]
   in
@@ -325,7 +308,7 @@ let upload_post ?image_content post =
   let^ () = Db.exec Q.upload_post_id (id, nick) in
   let^ () = Db.exec Q.upload_post_comment (id, comment) in
   let^ () = Db.exec Q.upload_post_date (id, date) in
-  let^ () = Db.exec Q.upload_to_thread (parent_id, id) in
+  let^ () = Db.exec Q.upload_thread_post (parent_id, id) in
   let _res_image_info, _res_image_content =
     match image_info with
     | None -> (Ok (), Ok ())
@@ -336,8 +319,6 @@ let upload_post ?image_content post =
         ( Db.exec Q.upload_image_info (id, name, alt)
         , Db.exec Q.upload_image_content (id, content) ) )
   in
-  (* what is parent and why do i need it again? TODO TODO *)
-  let^ () = Db.exec Q.upload_post_parent (id, parent_id) in
   let^ () =
     match
       List.find_opt Result.is_error
@@ -361,8 +342,7 @@ let upload_post ?image_content post =
   match thread_data with
   | None -> Ok id
   | Some { subject; lng; lat } ->
-    let^ () = Db.exec Q.upload_post_gps (id, lat, lng) in
-    let^ () = Db.exec Q.upload_post_subject (id, subject) in
+    let^ () = Db.exec Q.upload_thread_info (id, subject, lat, lng) in
     Ok id
 
 let build_reply ~comment ?image ~tags ?parent_id nick =
