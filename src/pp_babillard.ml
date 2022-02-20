@@ -2,25 +2,23 @@ include Bindings
 include Babillard
 open Db
 
-let view_post ?is_thread_preview id =
-  let* { id
-       ; parent_id = _parent_id
-       ; date
-       ; nick
-       ; comment
-       ; image_info
-       ; tags
-       ; replies
-       ; citations = _citations
-       } =
-    get_post id
+let pp_post fmt ~hide_replies post =
+  let { id
+      ; parent_id = _parent_id
+      ; date
+      ; nick
+      ; comment
+      ; image_info
+      ; tags
+      ; replies
+      ; citations = _citations
+      } =
+    post
   in
 
   let image_view fmt () =
     match image_info with
     | Some (_image_name, image_alt) ->
-      (*TODO thumbnails *)
-      (*TODO image info like file name and size on top of image*)
       Format.fprintf fmt
         {|
     <div class="post-image-container">
@@ -44,21 +42,24 @@ let view_post ?is_thread_preview id =
   in
 
   let replies_view fmt () =
-    match is_thread_preview with
-    | None -> pp_print_replies fmt replies
-    | Some () -> (
+    if hide_replies then
+      (* TODO put thread_posts count in thread_info ? *)
       let res_nb = Db.find Q.count_thread_posts id in
       match res_nb with
       | Error _ -> Format.fprintf fmt ""
       | Ok ((1 | 2) as nb) ->
         Format.fprintf fmt {|<div class="replies">%d reply</div>|} (nb - 1)
       | Ok nb ->
-        Format.fprintf fmt {|<div class="replies">%d replies</div>|} (nb - 1) )
+        Format.fprintf fmt {|<div class="replies">%d replies</div>|} (nb - 1)
+    else pp_print_replies fmt replies
   in
 
   let post_links_view fmt () =
-    match is_thread_preview with
-    | None ->
+    if hide_replies then
+      Format.fprintf fmt {|
+        %a
+        |} replies_view ()
+    else
       Format.fprintf fmt
         {|
         <span class=postNo>
@@ -68,9 +69,6 @@ let view_post ?is_thread_preview id =
         %a
         |}
         id id id replies_view ()
-    | Some () -> Format.fprintf fmt {|
-        %a
-        |} replies_view ()
   in
 
   let post_info_view fmt () =
@@ -95,8 +93,8 @@ let view_post ?is_thread_preview id =
   let tags = List.sort String.compare tags in
   let tags_view fmt () = pp_print_tags fmt tags in
 
-  let post_view =
-    Format.asprintf
+  let pp =
+    Format.fprintf fmt
       {|
 <div class="container">
         <div class="post" id="%s">
@@ -109,11 +107,15 @@ let view_post ?is_thread_preview id =
 |}
       id post_info_view () image_view () comment tags_view ()
   in
-  Ok post_view
+  pp
 
 let preview_thread thread_id =
-  let* post = view_post ~is_thread_preview:() thread_id in
+  let* post_data = get_post thread_id in
   let^? subject, _lat, _lng = Db.find_opt Q.get_thread_info thread_id in
+  let post =
+    (Format.asprintf "%a" (fun fmt data -> pp_post fmt ~hide_replies:true data))
+      post_data
+  in
   let thread_preview =
     Format.sprintf
       {|
@@ -151,7 +153,7 @@ let view_thread thread_id =
   match List.find_opt Result.is_error dates with
   | Some (Error e) -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
   | Some (Ok _) -> assert false
-  | None -> (
+  | None ->
     let dates = List.map Result.get_ok dates in
     let posts_dates = List.combine thread_posts dates in
     let sorted_posts_dates =
@@ -159,20 +161,19 @@ let view_thread thread_id =
     in
 
     let posts, _ = List.split sorted_posts_dates in
-    let view_posts = List.map view_post posts in
-    match List.find_opt Result.is_error view_posts with
-    | Some (Error e) -> Error e
-    | Some (Ok _) -> assert false
-    | None ->
-      let posts =
-        List.map Result.get_ok (List.filter Result.is_ok view_posts)
-      in
+    let posts_data = List.map get_post posts in
+    let res_opt = List.find_opt Result.is_error posts_data in
+    if Option.is_some res_opt then
+      let res = Result.get_error (Option.get res_opt) in
+      Error res
+    else
+      let posts_data = List.map Result.get_ok posts_data in
       let posts =
         Format.asprintf "%a"
           (Format.pp_print_list
              ~pp_sep:(fun fmt () -> Format.fprintf fmt "\r\n")
-             Format.pp_print_string )
-          posts
+             (fun fmt data -> pp_post fmt ~hide_replies:false data) )
+          posts_data
       in
       let thread_view =
         Format.sprintf
@@ -188,7 +189,7 @@ let view_thread thread_id =
 |}
           subject posts
       in
-      Ok thread_view )
+      Ok thread_view
 
 let get_markers () =
   let^ threads = Db.collect_list Q.get_threads () in
