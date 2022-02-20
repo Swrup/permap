@@ -42,15 +42,27 @@ let register_post request =
     render_unsafe (Register.f ~nick ~email ~password request) request
   | `Ok _ | `Many_tokens _ | `Missing_token _ | `Invalid_token _
   | `Wrong_session _ | `Expired _ | `Wrong_content_type ->
-    assert false
+    Dream.empty `Bad_Request
 
 let login_get request = render_unsafe (Login.f request) request
 
 let login_post request =
   match%lwt Dream.form request with
-  | `Ok [ ("nick", nick); ("password", password) ] ->
-    render_unsafe (Login.f ~nick ~password request) request
-  | _ -> assert false
+  | `Ok [ ("nick", nick); ("password", password) ] -> (
+    match User.login ~nick ~password request with
+    | Error e -> render_unsafe e request
+    | Ok () ->
+      let url =
+        match Dream.query request "redirect" with
+        | None -> "/jpp"
+        | Some redirect -> Dream.from_percent_encoded redirect
+      in
+      Dream.respond ~status:`See_Other
+        ~headers:[ ("Location", url) ]
+        "Logged in: Happy geo-posting!" )
+  | `Ok _ | `Many_tokens _ | `Missing_token _ | `Invalid_token _
+  | `Wrong_session _ | `Expired _ | `Wrong_content_type ->
+    Dream.empty `Bad_Request
 
 let user request =
   render_unsafe (Result.fold ~ok:Fun.id ~error:Fun.id (User.list ())) request
