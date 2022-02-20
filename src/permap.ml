@@ -73,7 +73,7 @@ let user_profile request =
     render_unsafe
       (Result.fold ~ok:Fun.id ~error:Fun.id (User.public_profile nick))
       request
-  else Dream.respond ~status:`Not_Found "404: User does not exists"
+  else Dream.respond ~status:`Not_Found "User does not exists"
 
 let logout request =
   let _ = Dream.invalidate_session request in
@@ -126,7 +126,7 @@ let avatar_image request =
       | None -> failwith "can't find default avatar"
       | Some avatar ->
         Dream.respond ~headers:[ ("Content-Type", "image") ] avatar )
-  else Dream.respond ~status:`Not_Found "404: User does not exists"
+  else Dream.respond ~status:`Not_Found "User does not exists"
 
 let post_image request =
   let post_id = Dream.param request "post_id" in
@@ -135,7 +135,7 @@ let post_image request =
     match image with
     | Ok image -> Dream.respond ~headers:[ ("Content-Type", "image") ] image
     | Error _ -> Dream.empty `Not_Found
-  else Dream.respond ~status:`Not_Found "404: Image does not exists"
+  else Dream.respond ~status:`Not_Found "Image does not exists"
 
 let markers request =
   let markers = Pp_babillard.get_markers () in
@@ -196,7 +196,7 @@ let thread_get request =
       | Ok thread_view -> Thread_page.f thread_view thread_id request
     in
     render_unsafe res request
-  else Dream.respond ~status:`Not_Found "404: Thread not found"
+  else Dream.respond ~status:`Not_Found "Thread not found"
 
 (*form to reply to a thread *)
 let reply_post request =
@@ -231,6 +231,18 @@ let reply_post request =
     | `Wrong_session _ | `Wrong_content_type ->
       Dream.empty `Bad_Request )
 
+let error_template _error _debug_info response =
+  let status = Dream.status response in
+  let code = Dream.status_to_int status in
+
+  (*TODO improve: can't use template.elm.html because it needs "request" *)
+  let%lwt body = Dream.body response in
+  let reason =
+    if String.equal "" body then Dream.status_to_string status else body
+  in
+  Dream.set_body response (Format.sprintf "%d: %s" code reason);
+  Lwt.return response
+
 let routes =
   (* this is just so that they're visually aligned *)
   let get_ = Dream.get in
@@ -262,7 +274,8 @@ let routes =
 
 let () =
   let logger = if App.log then Dream.logger else Fun.id in
-  Dream.run ~port:App.port @@ logger @@ Dream.cookie_sessions
+  Dream.run ~port:App.port ~error_handler:(Dream.error_template error_template)
+  @@ logger @@ Dream.cookie_sessions
   (* this should replace memory/cookie sessions but it doesn't work :-(
      @@ Dream.sql_pool Db.db_uri
      @@ Dream.sql_sessions
