@@ -1,5 +1,12 @@
 let f request =
-<%s! Dream.form_tag ~action:"/login" request %>
+
+% let url =
+%   match Dream.query request "redirect" with
+%       | None -> "/login"
+%       | Some r -> 
+%     Format.sprintf "/login?redirect=%s" r
+% in
+<%s! Dream.form_tag ~action:url request %>
   <div class="mb-3">
     <label for="nick" class="form-label">Nick</label>
     <input name="nick" type="text" class="form-control" id="nick" aria-describedby="nickHelp">

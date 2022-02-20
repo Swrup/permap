@@ -2,8 +2,7 @@ let f request =
 % begin match Dream.session "nick" request with
 % | None ->
 % let redirect = Dream.to_percent_encoded "/new_thread" in
-% Format.printf "%s@." redirect;
-<a href="/login?redirect=<%s redirect%>">Login</a> to make a new thread.
+  <a href="/login?redirect=<%s redirect%>">Login</a> to make a new thread.
 % | Some _nick ->
   <script type="text/javascript" src="/assets/js/js_newthread.js" defer="defer"></script>
   <h1>New thread</h1>

@@ -3,8 +3,8 @@ let f thread_view thread_id request =
       <%s! thread_view %>
 % begin match Dream.session "nick" request with
 % | None ->
-% let redirect = Dream.to_percent_encoded (Format.sprintf "redirect=/thread/%s" thread_id) in
-<a href="/login?<%s redirect%>">Login to reply!</a>
+% let redirect = Dream.to_percent_encoded (Format.sprintf "/thread/%s" thread_id) in
+<a href="/login?redirect=<%s redirect%>">Login to reply!</a>
 % | Some _ ->
     <div class="post-form">
         <%s! Dream.form_tag ~action:( Format.sprintf "/thread/%s" thread_id)

@@ -54,7 +54,7 @@ let login_post request =
     | Ok () ->
       let url =
         match Dream.query request "redirect" with
-        | None -> "/jpp"
+        | None -> "/"
         | Some redirect -> Dream.from_percent_encoded redirect
       in
       Dream.respond ~status:`See_Other

@@ -1,9 +1,8 @@
 let f request =
 
-% let redirect = Dream.to_percent_encoded "/new_thread" in
 % let new_thread_url =
 %   if Option.is_none @@ Dream.session "nick" request then
-%     Format.sprintf "/login?redirect=%s" redirect
+%     Format.sprintf "/login?redirect=%s" (Dream.to_percent_encoded "/new_thread")
 %   else "/new_thread"
 % in
   <script type="text/javascript" src="/assets/js/js_babillard.js" defer="defer"></script>
