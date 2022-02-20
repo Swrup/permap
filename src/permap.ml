@@ -52,7 +52,7 @@ let login_post request =
     render_unsafe (Login.f ~nick ~password request) request
   | _ -> assert false
 
-let users request =
+let user request =
   render_unsafe (Result.fold ~ok:Fun.id ~error:Fun.id (User.list ())) request
 
 let user_profile request =
@@ -237,7 +237,7 @@ let routes =
   ; get_ "/post_pic/:post_id" post_image
   ; get_ "/profile" profile_get
   ; post "/profile" profile_post
-  ; get_ "/users" users
+  ; get_ "/user" user
   ; get_ "/user/:user" user_profile
   ; get_ "/user/:user/avatar" avatar_image
   ; get_ "/thread/:thread_id" thread_get
