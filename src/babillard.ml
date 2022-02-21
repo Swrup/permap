@@ -23,6 +23,13 @@ type t =
   | Op of thread_data * post
   | Post of post
 
+let unwrap_list f ids =
+  let l = List.map f ids in
+  let res = List.find_opt Result.is_error l in
+  if Option.is_some res then
+    Error (Result.fold ~ok:(assert false) ~error:Fun.id (Option.get res))
+  else Ok (List.map Result.get_ok l)
+
 module Q = struct
   let create_post_user_table =
     Caqti_request.exec Caqti_type.unit
@@ -319,25 +326,11 @@ let upload_post ?image_content post =
         ( Db.exec Q.upload_image_info (id, name, alt)
         , Db.exec Q.upload_image_content (id, content) ) )
   in
-  let^ () =
-    match
-      List.find_opt Result.is_error
-        (List.map (fun tag -> Db.exec Q.upload_post_tag (id, tag)) tags)
-    with
-    | Some (Error e) -> Error e
-    | Some _ -> assert false
-    | None -> Ok ()
-  in
-  let^ () =
-    match
-      List.find_opt Result.is_error
-        (List.map
-           (fun cited_id -> Db.exec Q.upload_post_reply (cited_id, id))
-           citations )
-    with
-    | Some (Error e) -> Error e
-    | Some _ -> assert false
-    | None -> Ok ()
+  let^ _ = unwrap_list (fun tag -> Db.exec Q.upload_post_tag (id, tag)) tags in
+  let^ _ =
+    unwrap_list
+      (fun cited_id -> Db.exec Q.upload_post_reply (cited_id, id))
+      citations
   in
   match thread_data with
   | None -> Ok id
@@ -445,13 +438,6 @@ let get_op id =
   let* thread_data = get_thread_data id in
   let* post = get_post id in
   Ok (thread_data, post)
-
-let unwrap_list f ids =
-  let l = List.map f ids in
-  let res = List.find_opt Result.is_error l in
-  if Option.is_some res then
-    Error (Result.fold ~ok:(assert false) ~error:Fun.id (Option.get res))
-  else Ok (List.map Result.get_ok l)
 
 let get_posts ids = unwrap_list get_post ids
 
