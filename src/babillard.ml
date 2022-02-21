@@ -7,7 +7,7 @@ type thread_data =
   ; lat : float
   }
 
-type reply =
+type post =
   { id : string
   ; parent_id : string
   ; date : int
@@ -19,9 +19,9 @@ type reply =
   ; citations : string list
   }
 
-type post =
-  | Op of thread_data * reply
-  | Reply of reply
+type t =
+  | Op of thread_data * post
+  | Post of post
 
 module Q = struct
   let create_post_user_table =
@@ -299,7 +299,7 @@ let upload_post ?image_content post =
   let thread_data, reply =
     match post with
     | Op (thread_data, reply) -> (Some thread_data, reply)
-    | Reply reply -> (None, reply)
+    | Post reply -> (None, reply)
   in
   let { id; parent_id; date; nick; comment; image_info; tags; citations; _ } =
     reply
@@ -399,7 +399,7 @@ let build_op ~comment ?image ~tags ~subject ~lat ~lng nick =
 
 let make_reply ~comment ?image ~tags ~parent_id nick =
   let* reply = build_reply ~comment ?image ~tags ~parent_id nick in
-  let post = Reply reply in
+  let post = Post reply in
   match image with
   | None -> upload_post post
   | Some (_image_info, image_content) -> upload_post ~image_content post
@@ -413,6 +413,11 @@ let make_op ~comment ?image ~tags ~subject ~lat ~lng nick =
 let get_post_image_content id =
   let^? content = Db.find_opt Q.get_post_image_content id in
   Ok content
+
+let thread_exists id = Result.is_ok (Db.find Q.get_is_thread id)
+
+(* true if post is an op too *)
+let post_exists id = Result.is_ok (Db.find Q.get_is_post id)
 
 let get_post id =
   let^ parent_id = Db.find Q.get_post_thread id in
@@ -429,7 +434,14 @@ let get_post id =
   in
   Ok reply
 
-let thread_exists id = Result.is_ok (Db.find Q.get_is_thread id)
+let get_thread_data id =
+  if thread_exists id then
+    let^? subject, lat, lng = Db.find_opt Q.get_thread_info id in
+    let thread_data = { subject; lat; lng } in
+    Ok thread_data
+  else Error "not an op"
 
-(* true if post is an op too *)
-let post_exists id = Result.is_ok (Db.find Q.get_is_post id)
+let get_op id =
+  let* thread_data = get_thread_data id in
+  let* reply = get_post id in
+  Ok (thread_data, reply)

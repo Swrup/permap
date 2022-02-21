@@ -109,12 +109,11 @@ let pp_post fmt ~hide_replies post =
   in
   pp
 
-let preview_thread thread_id =
-  let* post_data = get_post thread_id in
-  let^? subject, _lat, _lng = Db.find_opt Q.get_thread_info thread_id in
-  let post =
+let pp_thread_preview op =
+  let thread_data, post = op in
+  let post_view =
     (Format.asprintf "%a" (fun fmt data -> pp_post fmt ~hide_replies:true data))
-      post_data
+      post
   in
   let thread_preview =
     Format.sprintf
@@ -126,14 +125,21 @@ let preview_thread thread_id =
     %s
 </div>
 |}
-      subject post
+      thread_data.subject post_view
   in
-  Ok thread_preview
+  thread_preview
 
 let catalog_content () =
   Format.printf "catalog_content@.";
   let^ threads = Db.collect_list Q.get_threads () in
-  let res_previews = List.map preview_thread threads in
+  let res_previews =
+    List.map
+      (fun id ->
+        let* op = get_op id in
+        Ok (pp_thread_preview op) )
+      threads
+  in
+
   let res_opt = List.find_opt Result.is_error res_previews in
   if Option.is_some res_opt then Option.get res_opt
   else
@@ -192,9 +198,15 @@ let view_thread thread_id =
       Ok thread_view
 
 let get_markers () =
-  let^ threads = Db.collect_list Q.get_threads () in
-  let res_previews = List.map preview_thread threads in
-  let res_infos = List.map (Db.find Q.get_thread_info) threads in
+  let^ ids = Db.collect_list Q.get_threads () in
+  let res_previews =
+    List.map
+      (fun id ->
+        let* op = get_op id in
+        Ok (pp_thread_preview op) )
+      ids
+  in
+  let res_infos = List.map (Db.find Q.get_thread_info) ids in
 
   let res_previews_opt = List.find_opt Result.is_error res_previews in
   let res_info_opt = List.find_opt Result.is_error res_infos in
@@ -208,7 +220,7 @@ let get_markers () =
     let previews = List.map Result.get_ok res_previews in
     let infos = List.map Result.get_ok res_infos in
     let previews_infos = List.combine previews infos in
-    let previews_infos_ids = List.combine previews_infos threads in
+    let previews_infos_ids = List.combine previews_infos ids in
 
     let pp_marker fmt lat lng content thread_id =
       (* geojson use lng lat, and not lat lng*)
