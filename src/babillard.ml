@@ -443,5 +443,16 @@ let get_thread_data id =
 
 let get_op id =
   let* thread_data = get_thread_data id in
-  let* reply = get_post id in
-  Ok (thread_data, reply)
+  let* post = get_post id in
+  Ok (thread_data, post)
+
+let unwrap_list f ids =
+  let l = List.map f ids in
+  let res = List.find_opt Result.is_error l in
+  if Option.is_some res then
+    Error (Result.fold ~ok:(assert false) ~error:Fun.id (Option.get res))
+  else Ok (List.map Result.get_ok l)
+
+let get_posts ids = unwrap_list get_post ids
+
+let get_ops ids = unwrap_list get_op ids

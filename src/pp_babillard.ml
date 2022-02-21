@@ -2,7 +2,12 @@ include Bindings
 include Babillard
 open Db
 
-let pp_post fmt ~hide_replies post =
+let pp_post fmt t =
+  let thread_data_opt, post =
+    match t with
+    | Op (data, post) -> (Some data, post)
+    | Post post -> (None, post)
+  in
   let { id
       ; parent_id = _parent_id
       ; date
@@ -42,7 +47,7 @@ let pp_post fmt ~hide_replies post =
   in
 
   let replies_view fmt () =
-    if hide_replies then
+    if Option.is_some thread_data_opt then
       (* TODO put thread_posts count in thread_info ? *)
       let res_nb = Db.find Q.count_thread_posts id in
       match res_nb with
@@ -55,7 +60,7 @@ let pp_post fmt ~hide_replies post =
   in
 
   let post_links_view fmt () =
-    if hide_replies then
+    if Option.is_some thread_data_opt then
       Format.fprintf fmt {|
         %a
         |} replies_view ()
@@ -93,97 +98,67 @@ let pp_post fmt ~hide_replies post =
   let tags = List.sort String.compare tags in
   let tags_view fmt () = pp_print_tags fmt tags in
 
+  let subject =
+    Option.fold ~none:""
+      ~some:(fun thread_data -> thread_data.subject)
+      thread_data_opt
+  in
   let pp =
     Format.fprintf fmt
       {|
 <div class="container">
-        <div class="post" id="%s">
-            %a
-            %a
-            <blockquote class="post-comment">%s</blockquote> 
-            %a
-        </div> 
+    <div class="post" id="%s">
+        <div class="thread-subject">
+            %s
+        </div>
+        %a
+        %a
+        <blockquote class="post-comment">%s</blockquote> 
+        %a
+    </div> 
 </div> 
 |}
-      id post_info_view () image_view () comment tags_view ()
+      id subject post_info_view () image_view () comment tags_view ()
   in
   pp
 
-let pp_thread_preview op =
+let pp_thread_preview fmt op =
   let thread_data, post = op in
-  let post_view =
-    (Format.asprintf "%a" (fun fmt data -> pp_post fmt ~hide_replies:true data))
-      post
-  in
   let thread_preview =
-    Format.sprintf
+    Format.fprintf fmt
       {|
 <div class="thread-preview">
-    <div class="thread-subject">
-        %s
-    </div>
-    %s
+    %a
 </div>
 |}
-      thread_data.subject post_view
+      pp_post
+      (Op (thread_data, post))
   in
   thread_preview
 
 let catalog_content () =
   Format.printf "catalog_content@.";
-  let^ threads = Db.collect_list Q.get_threads () in
-  let res_previews =
-    List.map
-      (fun id ->
-        let* op = get_op id in
-        Ok (pp_thread_preview op) )
-      threads
-  in
+  let^ ids = Db.collect_list Q.get_threads () in
+  let* ops = get_ops ids in
+  let previews = List.map (Format.asprintf "%a" pp_thread_preview) ops in
+  Ok
+    (Format.asprintf "%a"
+       (Format.pp_print_list ~pp_sep:Format.pp_print_space
+          Format.pp_print_string )
+       previews )
 
-  let res_opt = List.find_opt Result.is_error res_previews in
-  if Option.is_some res_opt then Option.get res_opt
-  else
-    let previews = List.map Result.get_ok res_previews in
-    Ok
-      (Format.asprintf "%a"
-         (Format.pp_print_list ~pp_sep:Format.pp_print_space
-            Format.pp_print_string )
-         previews )
-
-let view_thread thread_id =
-  let^ _is_thread = Db.find Q.get_is_thread thread_id in
-  let^? subject, _lat, _lng = Db.find_opt Q.get_thread_info thread_id in
-  let^ thread_posts = Db.collect_list Q.get_thread_posts thread_id in
+let pp_thread fmt op posts =
+  let thread_data, _post = op in
   (*order by date *)
-  let dates = List.map (Db.find Q.get_post_date) thread_posts in
-  match List.find_opt Result.is_error dates with
-  | Some (Error e) -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
-  | Some (Ok _) -> assert false
-  | None ->
-    let dates = List.map Result.get_ok dates in
-    let posts_dates = List.combine thread_posts dates in
-    let sorted_posts_dates =
-      List.sort (fun (_, a) (_, b) -> compare a b) posts_dates
-    in
-
-    let posts, _ = List.split sorted_posts_dates in
-    let posts_data = List.map get_post posts in
-    let res_opt = List.find_opt Result.is_error posts_data in
-    if Option.is_some res_opt then
-      let res = Result.get_error (Option.get res_opt) in
-      Error res
-    else
-      let posts_data = List.map Result.get_ok posts_data in
-      let posts =
-        Format.asprintf "%a"
-          (Format.pp_print_list
-             ~pp_sep:(fun fmt () -> Format.fprintf fmt "\r\n")
-             (fun fmt data -> pp_post fmt ~hide_replies:false data) )
-          posts_data
-      in
-      let thread_view =
-        Format.sprintf
-          {|
+  let posts = List.sort (fun a b -> compare a.date b.date) posts in
+  let posts_view =
+    Format.asprintf "%a"
+      (Format.pp_print_list ~pp_sep:Format.pp_print_space (fun fmt post ->
+           pp_post fmt (Post post) ) )
+      posts
+  in
+  Format.fprintf fmt
+    {|
 <div class="thread">
     <div class="thread-subject">
         %s
@@ -193,61 +168,46 @@ let view_thread thread_id =
     </div>
 </div>
 |}
-          subject posts
-      in
-      Ok thread_view
+    thread_data.subject posts_view
+
+let view_thread thread_id =
+  let* op = get_op thread_id in
+  let^ ids = Db.collect_list Q.get_thread_posts thread_id in
+  let* posts = get_posts ids in
+  let s =
+    (Format.asprintf "%a" (fun fmt (op, posts) -> pp_thread fmt op posts))
+      (op, posts)
+  in
+  Ok s
+
+let pp_marker fmt op =
+  let thread_data, post = op in
+  let content = Format.asprintf "%a" pp_thread_preview op in
+  (* geojson use lng lat, and not lat lng*)
+  let json =
+    `Assoc
+      [ ("type", `String "Feature")
+      ; ( "geometry"
+        , `Assoc
+            [ ("type", `String "Point")
+            ; ( "coordinates"
+              , `List [ `Float thread_data.lng; `Float thread_data.lat ] )
+            ] )
+      ; ( "properties"
+        , `Assoc
+            [ ("content", `String content); ("thread_id", `String post.id) ] )
+      ]
+  in
+  Yojson.pretty_print fmt json
 
 let get_markers () =
   let^ ids = Db.collect_list Q.get_threads () in
-  let res_previews =
-    List.map
-      (fun id ->
-        let* op = get_op id in
-        Ok (pp_thread_preview op) )
-      ids
+  let* ops = get_ops ids in
+  let markers =
+    Format.asprintf "[%a]"
+      (Format.pp_print_list
+         ~pp_sep:(fun fmt () -> Format.fprintf fmt ",")
+         (fun fmt op -> pp_marker fmt op) )
+      ops
   in
-  let res_infos = List.map (Db.find Q.get_thread_info) ids in
-
-  let res_previews_opt = List.find_opt Result.is_error res_previews in
-  let res_info_opt = List.find_opt Result.is_error res_infos in
-  if Option.is_some res_previews_opt then Option.get res_previews_opt
-  else if Option.is_some res_info_opt then
-    Error
-      (Result.fold
-         ~ok:(assert false)
-         ~error:Caqti_error.show (Option.get res_info_opt) )
-  else
-    let previews = List.map Result.get_ok res_previews in
-    let infos = List.map Result.get_ok res_infos in
-    let previews_infos = List.combine previews infos in
-    let previews_infos_ids = List.combine previews_infos ids in
-
-    let pp_marker fmt lat lng content thread_id =
-      (* geojson use lng lat, and not lat lng*)
-      let json =
-        `Assoc
-          [ ("type", `String "Feature")
-          ; ( "geometry"
-            , `Assoc
-                [ ("type", `String "Point")
-                ; ("coordinates", `List [ `Float lng; `Float lat ])
-                ] )
-          ; ( "properties"
-            , `Assoc
-                [ ("content", `String content)
-                ; ("thread_id", `String thread_id)
-                ] )
-          ]
-      in
-      Yojson.pretty_print fmt json
-    in
-
-    let markers =
-      Format.asprintf "[%a]"
-        (Format.pp_print_list
-           ~pp_sep:(fun fmt () -> Format.fprintf fmt ",")
-           (fun fmt ((preview, (_sub, lat, lng)), id) ->
-             pp_marker fmt lat lng preview id ) )
-        previews_infos_ids
-    in
-    Ok markers
+  Ok markers
