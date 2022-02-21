@@ -16,6 +16,13 @@ let random_state = Random.State.make_self_init ()
 module Db =
 (val Caqti_blocking.connect (Uri.of_string db_uri) |> Caqti_blocking.or_fail)
 
+let () =
+  let set_foreign_keys_on =
+    Caqti_request.exec Caqti_type.unit "PRAGMA foreign_keys = ON;"
+  in
+  if Result.is_error (Db.exec set_foreign_keys_on ()) then
+    Dream.error (fun log -> log "can't et foreign_keys on")
+
 (* TODO do image validation: length and MIME types with conan*)
 (* TODO do the same for text input: check length, forbidden chars and have a forbidden words filter*)
 let is_valid_image _content = true
