@@ -152,8 +152,8 @@ let pp_thread fmt op posts =
   let thread_data, _post = op in
   (*order by date *)
   let posts = List.sort (fun a b -> compare a.date b.date) posts in
-  let posts_view =
-    Format.asprintf "%a"
+  let posts_view fmt () =
+    Format.fprintf fmt "%a"
       (Format.pp_print_list ~pp_sep:Format.pp_print_space (fun fmt post ->
            pp_post fmt (Post post) ) )
       posts
@@ -165,11 +165,11 @@ let pp_thread fmt op posts =
         %s
     </div>
     <div class="thread-posts">
-        %s
+        %a
     </div>
 </div>
 |}
-    thread_data.subject posts_view
+    thread_data.subject posts_view ()
 
 let view_thread thread_id =
   let* op = get_op thread_id in
