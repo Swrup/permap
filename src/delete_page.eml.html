@@ -1,0 +1,20 @@
+let f post_preview post_id request =
+
+<script type="text/javascript" src="/assets/js/js_catalog.js" defer="defer"></script>
+      <%s! post_preview %>
+% let url = Format.sprintf "/delete/%s" post_id in
+% begin match Dream.session "nick" request with
+% | None ->
+% let redirect = Dream.to_percent_encoded url in
+  <a href="/login?redirect=<%s redirect%>">Login</a> to delete your post.
+% | Some _nick ->
+  <div class="row mb-3">
+    <div class="col-md-6" id="delete-form">
+      <div class="postForm">
+<%s! Dream.form_tag ~action:url ~enctype:`Multipart_form_data request %>
+          <button name="delete-button" type="submit" class="btn btn-primary">DELETE</button>
+        </form>
+      </div>
+    </div>
+  </div>
+% end;

@@ -122,6 +122,10 @@ let pp_post fmt t =
   in
   pp
 
+let view_post id =
+  let* post = get_post id in
+  Ok (Format.asprintf "%a" pp_post (Post post))
+
 let pp_thread_preview fmt op =
   let thread_data, post = op in
   let thread_preview =
@@ -137,7 +141,6 @@ let pp_thread_preview fmt op =
   thread_preview
 
 let catalog_content () =
-  Format.printf "catalog_content@.";
   let^ ids = Db.collect_list Q.get_threads () in
   let* ops = get_ops ids in
   let previews = List.map (Format.asprintf "%a" pp_thread_preview) ops in

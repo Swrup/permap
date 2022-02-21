@@ -193,6 +193,10 @@ module Q = struct
   let get_threads =
     Caqti_request.collect Caqti_type.unit Caqti_type.string
       "SELECT thread_id FROM thread_info;"
+
+  let delete_post =
+    Caqti_request.exec Caqti_type.string
+      "DELETE FROM post_user WHERE post_id=?;"
 end
 
 let () =
@@ -442,3 +446,10 @@ let get_op id =
 let get_posts ids = unwrap_list get_post ids
 
 let get_ops ids = unwrap_list get_op ids
+
+let try_delete_post ~nick id =
+  let* post = get_post id in
+  if post.nick = nick then
+    let^ () = Db.exec Q.delete_post id in
+    Ok ()
+  else Error "You can only delete your posts"

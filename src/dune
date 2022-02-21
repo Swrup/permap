@@ -5,6 +5,7 @@
   babillard
   babillard_page
   catalog_page
+  delete_page
   bindings
   content
   db
@@ -39,6 +40,12 @@
 (rule
  (targets catalog_page.ml)
  (deps catalog_page.eml.html)
+ (action
+  (run dream_eml %{deps} --workspace %{workspace_root})))
+
+(rule
+ (targets delete_page.ml)
+ (deps delete_page.eml.html)
  (action
   (run dream_eml %{deps} --workspace %{workspace_root})))
 

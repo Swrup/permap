@@ -70,6 +70,25 @@ let catalog request =
   in
   render_unsafe (Catalog_page.f catalog_content) request
 
+let delete_get request =
+  let post_id = Dream.param request "post_id" in
+  let post_preview =
+    Result.fold ~ok:Fun.id ~error:Fun.id (Pp_babillard.view_post post_id)
+  in
+  render_unsafe (Delete_page.f post_preview post_id request) request
+
+let delete_post request =
+  let post_id = Dream.param request "post_id" in
+  match Dream.session "nick" request with
+  | None -> render_unsafe "Not logged in" request
+  | Some nick -> (
+    match Babillard.try_delete_post ~nick post_id with
+    | Error e -> render_unsafe e request
+    | Ok () ->
+      Dream.respond ~status:`See_Other
+        ~headers:[ ("Location", "/") ]
+        "Your post was deleted!" )
+
 let user request =
   render_unsafe (Result.fold ~ok:Fun.id ~error:Fun.id (User.list ())) request
 
@@ -273,6 +292,8 @@ let routes =
   ; get_ "/thread/:thread_id" thread_get
   ; post "/thread/:thread_id" reply_post
   ; get_ "/catalog" catalog
+  ; get_ "/delete/:post_id" delete_get
+  ; post "/delete/:post_id" delete_post
   ]
   @
   if App.open_registration then
