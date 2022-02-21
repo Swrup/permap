@@ -26,9 +26,10 @@ type t =
 let unwrap_list f ids =
   let l = List.map f ids in
   let res = List.find_opt Result.is_error l in
-  if Option.is_some res then
-    Error (Result.fold ~ok:(assert false) ~error:Fun.id (Option.get res))
-  else Ok (List.map Result.get_ok l)
+  match res with
+  | None -> Ok (List.map Result.get_ok l)
+  | Some (Ok _) -> assert false
+  | Some (Error e) -> Error e
 
 module Q = struct
   let create_post_user_table =
