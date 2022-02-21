@@ -4,11 +4,11 @@
   app
   babillard
   babillard_page
-  catalog_page
-  delete_page
   bindings
+  catalog_page
   content
   db
+  delete_page
   login
   newthread_page
   permap
@@ -38,6 +38,12 @@
   (pps lwt_ppx)))
 
 (rule
+ (targets babillard_page.ml)
+ (deps babillard_page.eml.html)
+ (action
+  (run dream_eml %{deps} --workspace %{workspace_root})))
+
+(rule
  (targets catalog_page.ml)
  (deps catalog_page.eml.html)
  (action
@@ -50,14 +56,14 @@
   (run dream_eml %{deps} --workspace %{workspace_root})))
 
 (rule
- (targets template.ml)
- (deps template.eml.html)
+ (targets login.ml)
+ (deps login.eml.html)
  (action
   (run dream_eml %{deps} --workspace %{workspace_root})))
 
 (rule
- (targets login.ml)
- (deps login.eml.html)
+ (targets newthread_page.ml)
+ (deps newthread_page.eml.html)
  (action
   (run dream_eml %{deps} --workspace %{workspace_root})))
 
@@ -68,20 +74,14 @@
   (run dream_eml %{deps} --workspace %{workspace_root})))
 
 (rule
- (targets babillard_page.ml)
- (deps babillard_page.eml.html)
+ (targets template.ml)
+ (deps template.eml.html)
  (action
   (run dream_eml %{deps} --workspace %{workspace_root})))
 
 (rule
  (targets thread_page.ml)
  (deps thread_page.eml.html)
- (action
-  (run dream_eml %{deps} --workspace %{workspace_root})))
-
-(rule
- (targets newthread_page.ml)
- (deps newthread_page.eml.html)
  (action
   (run dream_eml %{deps} --workspace %{workspace_root})))
 
@@ -95,8 +95,8 @@
  (target content.ml)
  (deps
   (source_tree content)
-  (file content/assets/js/js_catalog.js)
   (file content/assets/js/js_babillard.js)
+  (file content/assets/js/js_catalog.js)
   (file content/assets/js/js_newthread.js)
   (file content/assets/js/js_thread.js))
  (action

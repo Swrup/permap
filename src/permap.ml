@@ -276,6 +276,9 @@ let routes =
   [ get_ "/" babillard_get
   ; get_ "/about" about
   ; get_ "/assets/**" (Dream.static ~loader:asset_loader "")
+  ; get_ "/catalog" catalog
+  ; get_ "/delete/:post_id" delete_get
+  ; post "/delete/:post_id" delete_post
   ; get_ "/img/:post_id" post_image
   ; get_ "/login" login_get
   ; post "/login" login_post
@@ -286,14 +289,11 @@ let routes =
   ; get_ "/post_pic/:post_id" post_image
   ; get_ "/profile" profile_get
   ; post "/profile" profile_post
+  ; get_ "/thread/:thread_id" thread_get
+  ; post "/thread/:thread_id" reply_post
   ; get_ "/user" user
   ; get_ "/user/:user" user_profile
   ; get_ "/user/:user/avatar" avatar_image
-  ; get_ "/thread/:thread_id" thread_get
-  ; post "/thread/:thread_id" reply_post
-  ; get_ "/catalog" catalog
-  ; get_ "/delete/:post_id" delete_get
-  ; post "/delete/:post_id" delete_post
   ]
   @
   if App.open_registration then

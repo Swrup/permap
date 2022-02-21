@@ -21,7 +21,7 @@ let () =
     Caqti_request.exec Caqti_type.unit "PRAGMA foreign_keys = ON;"
   in
   if Result.is_error (Db.exec set_foreign_keys_on ()) then
-    Dream.error (fun log -> log "can't et foreign_keys on")
+    Dream.error (fun log -> log "can't set foreign_keys on")
 
 (* TODO do image validation: length and MIME types with conan*)
 (* TODO do the same for text input: check length, forbidden chars and have a forbidden words filter*)

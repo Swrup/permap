@@ -29,7 +29,7 @@ let unwrap_list f ids =
   match res with
   | None -> Ok (List.map Result.get_ok l)
   | Some (Ok _) -> assert false
-  | Some (Error e) -> Error e
+  | Some (Error _e as error) -> error
 
 module Q = struct
   let create_post_user_table =
@@ -48,25 +48,21 @@ module Q = struct
   (* map thread and reply to the thread *)
   let create_thread_post_table =
     Caqti_request.exec Caqti_type.unit
-      "CREATE TABLE IF NOT EXISTS thread_post (thread_id TEXT, post_id TEXT,\n\
-      \               FOREIGN KEY(thread_id) REFERENCES post_user(post_id) ON \
-       DELETE CASCADE,\n\
-      \               FOREIGN KEY(post_id) REFERENCES post_user(post_id) ON \
-       DELETE CASCADE);"
+      "CREATE TABLE IF NOT EXISTS thread_post (thread_id TEXT, post_id TEXT, \
+       FOREIGN KEY(thread_id) REFERENCES post_user(post_id) ON DELETE CASCADE, \
+       FOREIGN KEY(post_id) REFERENCES post_user(post_id) ON DELETE CASCADE);"
 
   let create_post_replies_table =
     Caqti_request.exec Caqti_type.unit
       "CREATE TABLE IF NOT EXISTS post_replies (post_id TEXT, reply_id TEXT, \
-       FOREIGN KEY(post_id) REFERENCES post_user(post_id) ON DELETE CASCADE,\n\
-      \       FOREIGN KEY(reply_id) REFERENCES post_user(post_id) ON DELETE \
-       CASCADE);"
+       FOREIGN KEY(post_id) REFERENCES post_user(post_id) ON DELETE CASCADE, \
+       FOREIGN KEY(reply_id) REFERENCES post_user(post_id) ON DELETE CASCADE);"
 
   let create_post_citations_table =
     Caqti_request.exec Caqti_type.unit
       "CREATE TABLE IF NOT EXISTS post_citations (post_id TEXT, cited_id TEXT, \
-       FOREIGN KEY(post_id) REFERENCES post_user(post_id) ON DELETE CASCADE,\n\
-      \       FOREIGN KEY(cited_id) REFERENCES post_user(post_id) ON DELETE \
-       CASCADE);"
+       FOREIGN KEY(post_id) REFERENCES post_user(post_id) ON DELETE CASCADE, \
+       FOREIGN KEY(cited_id) REFERENCES post_user(post_id) ON DELETE CASCADE);"
 
   let create_post_date_table =
     Caqti_request.exec Caqti_type.unit
@@ -338,8 +334,10 @@ let upload_post ?image_content post =
         ( Db.exec Q.upload_image_info (id, name, alt)
         , Db.exec Q.upload_image_content (id, content) ) )
   in
-  let^ _ = unwrap_list (fun tag -> Db.exec Q.upload_post_tag (id, tag)) tags in
-  let^ _ =
+  let^ _unit_list =
+    unwrap_list (fun tag -> Db.exec Q.upload_post_tag (id, tag)) tags
+  in
+  let^ _unit_list =
     unwrap_list
       (fun cited_id -> Db.exec Q.upload_post_reply (cited_id, id))
       citations

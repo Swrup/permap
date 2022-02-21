@@ -143,12 +143,10 @@ let pp_thread_preview fmt op =
 let catalog_content () =
   let^ ids = Db.collect_list Q.get_threads () in
   let* ops = get_ops ids in
-  let previews = List.map (Format.asprintf "%a" pp_thread_preview) ops in
   Ok
     (Format.asprintf "%a"
-       (Format.pp_print_list ~pp_sep:Format.pp_print_space
-          Format.pp_print_string )
-       previews )
+       (Format.pp_print_list ~pp_sep:Format.pp_print_space pp_thread_preview)
+       ops )
 
 let pp_thread fmt op posts =
   let thread_data, _post = op in
@@ -210,7 +208,7 @@ let get_markers () =
     Format.asprintf "[%a]"
       (Format.pp_print_list
          ~pp_sep:(fun fmt () -> Format.fprintf fmt ",")
-         (fun fmt op -> pp_marker fmt op) )
+         pp_marker )
       ops
   in
   Ok markers
