@@ -34,58 +34,65 @@ module Q = struct
   let create_post_user_table =
     Caqti_request.exec Caqti_type.unit
       "CREATE TABLE IF NOT EXISTS post_user (post_id TEXT, nick TEXT, PRIMARY \
-       KEY(post_id), FOREIGN KEY(nick) REFERENCES user(nick));"
+       KEY(post_id), FOREIGN KEY(nick) REFERENCES user(nick) ON DELETE \
+       CASCADE);"
 
   (* one row for each thread, with thread's data *)
   let create_thread_info_table =
     Caqti_request.exec Caqti_type.unit
       "CREATE TABLE IF NOT EXISTS thread_info (thread_id TEXT, subject TEXT, \
        lat FLOAT, lng FLOAT, FOREIGN KEY(thread_id) REFERENCES \
-       post_user(post_id));"
+       post_user(post_id) ON DELETE CASCADE);"
 
   (* map thread and reply to the thread *)
   let create_thread_post_table =
     Caqti_request.exec Caqti_type.unit
       "CREATE TABLE IF NOT EXISTS thread_post (thread_id TEXT, post_id TEXT,\n\
-      \               FOREIGN KEY(thread_id) REFERENCES post_user(post_id),\n\
-      \               FOREIGN KEY(post_id) REFERENCES post_user(post_id));"
+      \               FOREIGN KEY(thread_id) REFERENCES post_user(post_id) ON \
+       DELETE CASCADE,\n\
+      \               FOREIGN KEY(post_id) REFERENCES post_user(post_id) ON \
+       DELETE CASCADE);"
 
   let create_post_replies_table =
     Caqti_request.exec Caqti_type.unit
       "CREATE TABLE IF NOT EXISTS post_replies (post_id TEXT, reply_id TEXT, \
-       FOREIGN KEY(post_id) REFERENCES post_user(post_id),\n\
-      \       FOREIGN KEY(reply_id) REFERENCES post_user(post_id));"
+       FOREIGN KEY(post_id) REFERENCES post_user(post_id) ON DELETE CASCADE,\n\
+      \       FOREIGN KEY(reply_id) REFERENCES post_user(post_id) ON DELETE \
+       CASCADE);"
 
   let create_post_citations_table =
     Caqti_request.exec Caqti_type.unit
       "CREATE TABLE IF NOT EXISTS post_citations (post_id TEXT, cited_id TEXT, \
-       FOREIGN KEY(post_id) REFERENCES post_user(post_id),\n\
-      \       FOREIGN KEY(cited_id) REFERENCES post_user(post_id));"
+       FOREIGN KEY(post_id) REFERENCES post_user(post_id) ON DELETE CASCADE,\n\
+      \       FOREIGN KEY(cited_id) REFERENCES post_user(post_id) ON DELETE \
+       CASCADE);"
 
   let create_post_date_table =
     Caqti_request.exec Caqti_type.unit
       "CREATE TABLE IF NOT EXISTS post_date (post_id TEXT, date INT, FOREIGN \
-       KEY(post_id) REFERENCES post_user(post_id));"
+       KEY(post_id) REFERENCES post_user(post_id) ON DELETE CASCADE);"
 
   let create_post_comment_table =
     Caqti_request.exec Caqti_type.unit
       "CREATE TABLE IF NOT EXISTS post_comment (post_id TEXT, comment TEXT, \
-       FOREIGN KEY(post_id) REFERENCES post_user(post_id));"
+       FOREIGN KEY(post_id) REFERENCES post_user(post_id) ON DELETE CASCADE);"
 
   let create_image_info_table =
     Caqti_request.exec Caqti_type.unit
       "CREATE TABLE IF NOT EXISTS image_info (post_id TEXT, image_name TEXT, \
-       image_alt TEXT, FOREIGN KEY(post_id) REFERENCES post_user(post_id));"
+       image_alt TEXT, FOREIGN KEY(post_id) REFERENCES post_user(post_id) ON \
+       DELETE CASCADE);"
 
   let create_image_content_table =
     Caqti_request.exec Caqti_type.unit
       "CREATE TABLE IF NOT EXISTS image_content (post_id TEXT,image_content \
-       TEXT, FOREIGN KEY(post_id) REFERENCES post_user(post_id));"
+       TEXT, FOREIGN KEY(post_id) REFERENCES post_user(post_id) ON DELETE \
+       CASCADE);"
 
   let create_post_tags_table =
     Caqti_request.exec Caqti_type.unit
       "CREATE TABLE IF NOT EXISTS post_tags (post_id TEXT, tag TEXT, FOREIGN \
-       KEY(post_id) REFERENCES post_user(post_id));"
+       KEY(post_id) REFERENCES post_user(post_id) ON DELETE CASCADE);"
 
   let upload_post_id =
     Caqti_request.exec
