@@ -127,11 +127,11 @@ let pp_thread_preview fmt op =
   let thread_preview =
     Format.fprintf fmt
       {|
-<div class="thread-preview">
+<div class="thread-preview" data-id="%s" >
     %a
 </div>
 |}
-      pp_post
+      post.id pp_post
       (Op (thread_data, post))
   in
   thread_preview
