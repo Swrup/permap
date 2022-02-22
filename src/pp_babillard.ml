@@ -68,12 +68,11 @@ let pp_post fmt t =
       Format.fprintf fmt
         {|
         <span class=postNo>
-            <a href="#%s" title="Link to this post" class="quote">#</a>
             <button data-id="%s" class="quote-link" title="Reply to this post">%s</button>
         </span>
         %a
         |}
-        id id id replies_view ()
+        id id replies_view ()
   in
 
   let post_info_view fmt () =
@@ -82,9 +81,18 @@ let pp_post fmt t =
     <div class="post-info">
         <span class="nick">%s</span>
         <span class="date" data-time="%d"></span>
+        <div class="dropend post-menu-div">
+          <a class="dropdown-toggle post-menu-link" href="#" role="button" id="dropdownMenuLink" data-bs-toggle="dropdown" aria-expanded="false">
+          </a>
+          <ul class="dropdown-menu post-menu-content" aria-labelledby="dropdownMenuLink">
+            <li><a class="dropdown-item" href="#%s">Link to this post</a></li>
+            <li><a class="dropdown-item" href="/delete/%s">Delete</a></li>
+            <li><a class="dropdown-item" href="/report/%s">Report</a></li>
+          </ul>
+        </div>
         %a
     </div>|}
-      nick date post_links_view ()
+      nick date id id id post_links_view ()
   in
 
   let pp_print_tag fmt tag =

@@ -138,3 +138,12 @@ a.preview-link {
 .off {
   display: none;
 }
+
+.post-menu-div {
+  display: inline;
+}
+
+a.post-menu-link {
+  text-decoration: none;
+  color: green;
+}
