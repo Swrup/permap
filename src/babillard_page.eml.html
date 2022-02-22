@@ -1,9 +1,10 @@
 let f request =
 
-% let new_thread_url =
+% let new_thread_button =
 %   if Option.is_none @@ Dream.session "nick" request then
-%     Format.sprintf "/login?redirect=%s" (Dream.to_percent_encoded "/new_thread")
-%   else "/new_thread"
+%     Format.sprintf 
+%   {|<a class="btn btn-primary" id="new-thread-button-redirect" href="/login?redirect=%s">New Thread</a>|} (Dream.to_percent_encoded "/")
+%   else {|<button class="btn btn-primary on" id="new-thread-button">New Thread</button>|}
 % in
   <script type="text/javascript" src="/assets/js/js_babillard.js" defer="defer"></script>
   <h1>Babillard is love ❤️</h1>
@@ -13,10 +14,41 @@ let f request =
       <div id="map"></div>
       <br />
       <button class="btn btn-primary" id="geolocalize">Geolocalize me</button>
-      <a class="btn btn-primary" href="<%s! new_thread_url %>">New Thread</a>
+      <button class="btn btn-primary off" id="return-button">Return</button>
+      <%s! new_thread_button %>
     </div>
     <div class="col-md-6">
-      <div id="thread_preview_div"></div>
-      <a id="thread_link"></a>
+
+    <div class="thread-preview on" id="thread-preview"></div>
+
+    <div class="new-thread off" id="new-thread">
+      <h1>New thread</h1>
+      <span id="new-thread-info">
+          Click the map and make a new thread:
+      </span>
+      <br />
+      <div class="postForm">
+<%s! Dream.form_tag ~action:"/" ~enctype:`Multipart_form_data request %>
+          <input type="hidden" id="lat-input" name="lat-input">
+          <input type="hidden" id="lng-input" name="lng-input">
+
+          <label for="subject" id="subject-label" class="form-label">Subject</label>
+          <input name="subject" type="text" class="form-control" id="subject" aria-labelledby="subject-label"></input>
+          <br />
+          <label for="thread-comment" id="thread-comment-label" class="form-label">Comment</label>
+          <textarea name="thread-comment" type="text" class="form-control" id="thread-comment" aria-labelledby="thread-comment-label"></textarea>
+          <br />
+          <label for="tags" id="tags-label" class="form-label">Tags</label>
+          <input name="tags" type="text" class="form-control" id="tags" aria-labelledby="tags-label"></input>
+          <br />
+          <label for="file" id="file-label" class="form-label">Picture:</label>
+          <input id="file" name="file" aria-describedby="file-label" type="file" accept="image/*">
+          <br />
+          <label for="alt" id="alt-label" class="form-label">Image description:</label>
+          <input name="alt" type="text" class="form-control" id="alt" aria-labelledby="alt-label"></input>
+          <br />
+          <button type="submit" class="btn btn-primary" id="submit-new-thread-button" disabled>Make Thread</button>
+        </form>
+      </div>
     </div>
   </div>

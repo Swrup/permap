@@ -131,3 +131,10 @@ a.preview-link {
   border-radius: 4px;
   padding: 2px;
 }
+
+.on {
+}
+
+.off {
+  display: none;
+}

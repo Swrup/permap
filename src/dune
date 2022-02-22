@@ -10,7 +10,6 @@
   db
   delete_page
   login
-  newthread_page
   permap
   pp_babillard
   register
@@ -62,12 +61,6 @@
   (run dream_eml %{deps} --workspace %{workspace_root})))
 
 (rule
- (targets newthread_page.ml)
- (deps newthread_page.eml.html)
- (action
-  (run dream_eml %{deps} --workspace %{workspace_root})))
-
-(rule
  (targets register.ml)
  (deps register.eml.html)
  (action
@@ -97,7 +90,6 @@
   (source_tree content)
   (file content/assets/js/js_babillard.js)
   (file content/assets/js/js_catalog.js)
-  (file content/assets/js/js_newthread.js)
   (file content/assets/js/js_thread.js))
  (action
   (with-stdout-to

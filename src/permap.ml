@@ -171,9 +171,7 @@ let markers request =
 
 let babillard_get request = render_unsafe (Babillard_page.f request) request
 
-let newthread_get request = render_unsafe (Newthread_page.f request) request
-
-let newthread_post request =
+let babillard_post request =
   match Dream.session "nick" request with
   | None -> render_unsafe "Not logged in" request
   | Some nick -> (
@@ -274,6 +272,7 @@ let routes =
   let post = Dream.post in
 
   [ get_ "/" babillard_get
+  ; post "/" babillard_post
   ; get_ "/about" about
   ; get_ "/assets/**" (Dream.static ~loader:asset_loader "")
   ; get_ "/catalog" catalog
@@ -284,8 +283,6 @@ let routes =
   ; post "/login" login_post
   ; get_ "/logout" logout
   ; get_ "/markers" markers
-  ; get_ "/new_thread" newthread_get
-  ; post "/new_thread" newthread_post
   ; get_ "/post_pic/:post_id" post_image
   ; get_ "/profile" profile_get
   ; post "/profile" profile_post
