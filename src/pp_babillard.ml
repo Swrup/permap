@@ -103,11 +103,10 @@ let pp_post fmt t =
       ~some:(fun thread_data -> thread_data.subject)
       thread_data_opt
   in
-  let pp =
+  (* put inside a link if its a preview *)
+  let pp_inner_post fmt () =
     Format.fprintf fmt
       {|
-<div class="container">
-    <div class="post" id="%s">
         <div class="thread-subject">
             %s
         </div>
@@ -115,12 +114,27 @@ let pp_post fmt t =
         %a
         <blockquote class="post-comment">%s</blockquote> 
         %a
-    </div> 
-</div> 
 |}
-      id subject post_info_view () image_view () comment tags_view ()
+      subject post_info_view () image_view () comment tags_view ()
   in
-  pp
+  if Option.is_some thread_data_opt then
+    Format.fprintf fmt
+      {|
+    <div class="post" id="%s">
+      <a class="preview-link" href="/thread/%s">
+        %a
+      </a>
+    </div> 
+      |}
+      id id pp_inner_post ()
+  else
+    Format.fprintf fmt
+      {|
+    <div class="post" id="%s">
+      %a
+    </div> 
+      |}
+      id pp_inner_post ()
 
 let view_post id =
   let* post = get_post id in
@@ -131,11 +145,11 @@ let pp_thread_preview fmt op =
   let thread_preview =
     Format.fprintf fmt
       {|
-<div class="thread-preview" data-id="%s" >
-    %a
-</div>
+    <div class="thread-preview">
+        %a
+    </div>
 |}
-      post.id pp_post
+      pp_post
       (Op (thread_data, post))
   in
   thread_preview

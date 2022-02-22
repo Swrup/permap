@@ -44,14 +44,6 @@ let render_time date_span =
   in
   ignore @@ Jv.set date_span "innerHTML" (Jv.of_string date)
 
-(* make threads preview clickable to get to thread *)
-let preview_click thread_id _event =
-  log "preview_click@\n";
-  let url = Format.sprintf "/thread/%s" thread_id in
-  let window = Jv.get Jv.global "window" in
-  let location = Jv.get window "location" in
-  ignore @@ Jv.set location "href" (Jv.of_string url)
-
 let make_pretty _event =
   log "make pretty@\n";
   let document = Jv.get Jv.global "document" in
@@ -72,23 +64,7 @@ let make_pretty _event =
     @@ Jv.call el "addEventListener"
          [| Jv.of_string "click"; Jv.repr (image_click el) |]
   in
-  List.iter add_click post_images;
-
-  log "make_pretty_catalog@\n";
-  let previews =
-    Jv.to_jv_list
-    @@ Jv.call document "getElementsByClassName"
-         [| Jv.of_string "thread-preview" |]
-  in
-  let add_preview_click el =
-    let thread_id =
-      Jv.to_string @@ Jv.call el "getAttribute" [| Jv.of_string "data-id" |]
-    in
-    ignore
-    @@ Jv.call el "addEventListener"
-         [| Jv.of_string "click"; Jv.repr (preview_click thread_id) |]
-  in
-  List.iter add_preview_click previews
+  List.iter add_click post_images
 
 (*make pretty after page load*)
 let () =
