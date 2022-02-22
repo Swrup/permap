@@ -82,12 +82,42 @@ let delete_post request =
   match Dream.session "nick" request with
   | None -> render_unsafe "Not logged in" request
   | Some nick -> (
-    match Babillard.try_delete_post ~nick post_id with
-    | Error e -> render_unsafe e request
-    | Ok () ->
-      Dream.respond ~status:`See_Other
-        ~headers:[ ("Location", "/") ]
-        "Your post was deleted!" )
+    (* match on Dream.form needed for hidden csrf field *)
+    match%lwt Dream.form request with
+    | `Ok [] -> (
+      match Babillard.try_delete_post ~nick post_id with
+      | Error e -> render_unsafe e request
+      | Ok () ->
+        Dream.respond ~status:`See_Other
+          ~headers:[ ("Location", "/") ]
+          "Your post was deleted!" )
+    | `Ok _ | `Expired _ | `Many_tokens _ | `Missing_token _ | `Invalid_token _
+    | `Wrong_session _ | `Wrong_content_type ->
+      Dream.empty `Bad_Request )
+
+let report_get request =
+  let post_id = Dream.param request "post_id" in
+  let post_preview =
+    Result.fold ~ok:Fun.id ~error:Fun.id (Pp_babillard.view_post post_id)
+  in
+  render_unsafe (Report_page.f post_preview post_id request) request
+
+let report_post request =
+  let post_id = Dream.param request "post_id" in
+  match Dream.session "nick" request with
+  | None -> render_unsafe "Not logged in" request
+  | Some nick -> (
+    match%lwt Dream.form request with
+    | `Ok [ ("reason", reason) ] ->
+      let res =
+        match Babillard.report ~nick ~reason post_id with
+        | Error e -> e
+        | Ok () -> "The post was reported!"
+      in
+      render_unsafe res request
+    | `Ok _ | `Expired _ | `Many_tokens _ | `Missing_token _ | `Invalid_token _
+    | `Wrong_session _ | `Wrong_content_type ->
+      Dream.empty `Bad_Request )
 
 let user request =
   render_unsafe (Result.fold ~ok:Fun.id ~error:Fun.id (User.list ())) request
@@ -286,6 +316,8 @@ let routes =
   ; get_ "/post_pic/:post_id" post_image
   ; get_ "/profile" profile_get
   ; post "/profile" profile_post
+  ; get_ "/report/:post_id" report_get
+  ; post "/report/:post_id" report_post
   ; get_ "/thread/:thread_id" thread_get
   ; post "/thread/:thread_id" reply_post
   ; get_ "/user" user

@@ -91,6 +91,18 @@ module Q = struct
       "CREATE TABLE IF NOT EXISTS post_tags (post_id TEXT, tag TEXT, FOREIGN \
        KEY(post_id) REFERENCES post_user(post_id) ON DELETE CASCADE);"
 
+  let create_report_table =
+    Caqti_request.exec Caqti_type.unit
+      "CREATE TABLE IF NOT EXISTS report (nick TEXT, reason TEXT, date \
+       INT,post_id TEXT, FOREIGN KEY(post_id) REFERENCES post_user(post_id) ON \
+       DELETE CASCADE, FOREIGN KEY(nick) REFERENCES user(nick) ON DELETE \
+       CASCADE);"
+
+  let upload_report_post =
+    Caqti_request.exec
+      Caqti_type.(tup4 string string int string)
+      "INSERT INTO report VALUES (?,?,?,?);"
+
   let upload_post_id =
     Caqti_request.exec
       Caqti_type.(tup2 string string)
@@ -215,6 +227,7 @@ let () =
     ; Q.create_image_info_table
     ; Q.create_image_content_table
     ; Q.create_post_tags_table
+    ; Q.create_report_table
     ]
   in
   if
@@ -459,3 +472,10 @@ let try_delete_post ~nick id =
     let^ () = Db.exec Q.delete_post id in
     Ok ()
   else Error "You can only delete your posts"
+
+let report ~nick ~reason id =
+  if not (post_exists id) then Error "This post doesn't exists"
+  else
+    let date = int_of_float (Unix.time ()) in
+    let^ () = Db.exec Q.upload_report_post (nick, reason, date, id) in
+    Ok ()

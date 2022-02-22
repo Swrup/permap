@@ -13,6 +13,7 @@
   permap
   pp_babillard
   register
+  report_page
   template
   thread_page
   user
@@ -63,6 +64,12 @@
 (rule
  (targets register.ml)
  (deps register.eml.html)
+ (action
+  (run dream_eml %{deps} --workspace %{workspace_root})))
+
+(rule
+ (targets report_page.ml)
+ (deps report_page.eml.html)
  (action
   (run dream_eml %{deps} --workspace %{workspace_root})))
 

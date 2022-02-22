@@ -1,0 +1,22 @@
+let f post_preview post_id request =
+
+<script type="text/javascript" src="/assets/js/js_catalog.js" defer="defer"></script>
+      <%s! post_preview %>
+% let url = Format.sprintf "/report/%s" post_id in
+% begin match Dream.session "nick" request with
+% | None ->
+% let redirect = Dream.to_percent_encoded url in
+  <a href="/login?redirect=<%s redirect%>">Login</a> to report a post.
+% | Some _nick ->
+  <div class="row mb-3">
+    <div class="col-md-6" id="report-form">
+      <div class="postForm">
+<%s! Dream.form_tag ~action:url request %>
+          <label for="reason" id="reason-label" class="form-label">Reason:</label>
+          <input name="reason" id="reason" type="text" class="form-control" aria-labelledby="reason-label"></input>
+          <button type="submit" class="btn btn-primary">REPORT</button>
+        </form>
+      </div>
+    </div>
+  </div>
+% end;

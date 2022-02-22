@@ -11,8 +11,8 @@ let f post_preview post_id request =
   <div class="row mb-3">
     <div class="col-md-6" id="delete-form">
       <div class="postForm">
-<%s! Dream.form_tag ~action:url ~enctype:`Multipart_form_data request %>
-          <button name="delete-button" type="submit" class="btn btn-primary">DELETE</button>
+<%s! Dream.form_tag ~action:url request %>
+          <button type="submit" class="btn btn-primary">DELETE</button>
         </form>
       </div>
     </div>
