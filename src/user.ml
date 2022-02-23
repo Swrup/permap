@@ -15,11 +15,6 @@ module Q = struct
       "CREATE TABLE IF NOT EXISTS user (nick TEXT, password TEXT, email TEXT, \
        bio TEXT, avatar BLOB, PRIMARY KEY(nick));"
 
-  let create_plant_user_table =
-    Caqti_request.exec Caqti_type.unit
-      "CREATE TABLE IF NOT EXISTS plant_user (plant_id TEXT, nick TEXT, \
-       PRIMARY KEY(plant_id), FOREIGN KEY(nick) REFERENCES user(nick));"
-
   let get_password =
     Caqti_request.find_opt Caqti_type.string Caqti_type.string
       "SELECT password FROM user WHERE nick=?;"
@@ -53,6 +48,10 @@ module Q = struct
     Caqti_request.find_opt Caqti_type.string Caqti_type.string
       "SELECT bio FROM user WHERE nick=?;"
 
+  let get_email =
+    Caqti_request.find_opt Caqti_type.string Caqti_type.string
+      "SELECT email FROM user WHERE nick=?;"
+
   let get_avatar =
     Caqti_request.find_opt Caqti_type.string Caqti_type.string
       "SELECT avatar FROM user WHERE nick=?;"
@@ -61,16 +60,35 @@ module Q = struct
     Caqti_request.exec
       Caqti_type.(tup2 string string)
       "UPDATE user SET avatar=? WHERE nick=?;"
+
+  let create_banished_table =
+    Caqti_request.exec Caqti_type.unit
+      "CREATE TABLE IF NOT EXISTS banished (nick TEXT, email TEXT);"
+
+  let delete_user =
+    Caqti_request.exec Caqti_type.string "DELETE FROM user WHERE nick=?;"
+
+  let upload_banished =
+    Caqti_request.exec
+      Caqti_type.(tup2 string string)
+      "INSERT INTO banished VALUES (?,?);"
+
+  let get_banished =
+    Caqti_request.find Caqti_type.string
+      Caqti_type.(tup2 string string)
+      "SELECT * FROM banished WHERE nick=?;"
 end
 
 let () =
-  let tables = [ Q.create_user_table ] in
+  let tables = [ Q.create_user_table; Q.create_banished_table ] in
   if
     List.exists Result.is_error
       (List.map (fun query -> Db.exec query ()) tables)
   then Dream.error (fun log -> log "can't create table")
 
 let exist nick = Result.is_ok (Db.find Q.get_user nick)
+
+let is_banished nick = Result.is_ok (Db.find Q.get_banished nick)
 
 let login ~nick ~password request =
   if exist nick then
@@ -80,6 +98,7 @@ let login ~nick ~password request =
       let _unit_lwt = Dream.put_session "nick" nick request in
       Ok ()
     else Error "wrong password"
+  else if is_banished nick then Error "YOU ARE BANISHED"
   else Error "wrong user name"
 
 let register ~email ~nick ~password =
@@ -157,6 +176,10 @@ let get_bio nick =
   let^? bio = Db.find_opt Q.get_bio nick in
   Ok bio
 
+let get_email nick =
+  let^? email = Db.find_opt Q.get_email nick in
+  Ok email
+
 let get_avatar nick =
   let^? avatar = Db.find_opt Q.get_avatar nick in
   if String.length avatar = 0 then Ok None else Ok (Some avatar)
@@ -170,3 +193,11 @@ let upload_avatar files nick =
       let^ () = Db.exec Q.upload_avatar (content, nick) in
       Ok ()
   | _files -> Error "More than one file provided"
+
+let is_admin nick = List.mem nick App.admins
+
+let banish nick =
+  let* email = get_email nick in
+  let^ () = Db.exec Q.delete_user nick in
+  let^ () = Db.exec Q.upload_banished (nick, email) in
+  Ok ()

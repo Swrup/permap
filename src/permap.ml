@@ -64,6 +64,53 @@ let login_post request =
   | `Wrong_session _ | `Expired _ | `Wrong_content_type ->
     Dream.empty `Bad_Request
 
+let admin_get request =
+  match Dream.session "nick" request with
+  | None ->
+    let redirect_url =
+      Format.sprintf "/login?redirect=%s" (Dream.to_percent_encoded "/admin")
+    in
+    Dream.respond ~status:`See_Other ~headers:[ ("Location", redirect_url) ] ""
+  | Some nick ->
+    if not (User.is_admin nick) then Dream.respond ~status:`Forbidden ""
+    else
+      let res =
+        match Babillard.get_reports () with
+        | Error e -> e
+        | Ok (posts, reports) ->
+          Pp_babillard.admin_page_content posts reports request
+      in
+      render_unsafe res request
+
+let admin_post request =
+  match Dream.session "nick" request with
+  | None -> render_unsafe "Not logged in" request
+  | Some nick -> (
+    if not (User.is_admin nick) then Dream.respond ~status:`Forbidden ""
+    else
+      match%lwt Dream.form request with
+      | `Ok [ ("action", action); ("post_id", id) ] -> (
+        let res =
+          match Babillard.get_post id with
+          | Error _e as e -> e
+          | Ok post -> (
+            let evil_nick = post.nick in
+            match action with
+            | "delete" -> Babillard.try_delete_post ~nick id
+            | "banish" -> User.banish evil_nick
+            | "ignore" -> Babillard.ignore_report id
+            | a -> Error (Format.sprintf "invalid action: `%s`" a) )
+        in
+        match res with
+        | Error e -> render_unsafe e request
+        | Ok () ->
+          Dream.respond ~status:`See_Other
+            ~headers:[ ("Location", "/admin") ]
+            "" )
+      | `Ok _ | `Expired _ | `Many_tokens _ | `Missing_token _
+      | `Invalid_token _ | `Wrong_session _ | `Wrong_content_type ->
+        Dream.empty `Bad_Request )
+
 let catalog request =
   let catalog_content =
     Result.fold ~ok:Fun.id ~error:Fun.id (Pp_babillard.catalog_content ())
@@ -139,8 +186,10 @@ let profile_get request =
   match Dream.session "nick" request with
   | None -> render_unsafe "Not logged in" request
   | Some nick ->
-    let bio = match User.get_bio nick with Ok bio -> bio | Error e -> e in
-    render_unsafe (User_profile.f nick bio request) request
+    if User.exist nick then
+      let bio = match User.get_bio nick with Ok bio -> bio | Error e -> e in
+      render_unsafe (User_profile.f nick bio request) request
+    else Dream.respond ~status:`Not_Found "User does not exists"
 
 let profile_post request =
   match Dream.session "nick" request with
@@ -304,6 +353,8 @@ let routes =
   [ get_ "/" babillard_get
   ; post "/" babillard_post
   ; get_ "/about" about
+  ; get_ "/admin" admin_get
+  ; post "/admin" admin_post
   ; get_ "/assets/**" (Dream.static ~loader:asset_loader "")
   ; get_ "/catalog" catalog
   ; get_ "/delete/:post_id" delete_get

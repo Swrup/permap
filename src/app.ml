@@ -45,8 +45,8 @@ let () = Dream.log "open_registration: %b" open_registration
 let port =
   match Scfg.Query.get_dir "port" config with
   | None -> 8080
-  | Some open_registration -> (
-    match Scfg.Query.get_param 0 open_registration with
+  | Some port -> (
+    match Scfg.Query.get_param 0 port with
     | Error e -> failwith e
     | Ok n -> (
       try
@@ -61,11 +61,18 @@ let () = Dream.log "port: %d" port
 let log =
   match Scfg.Query.get_dir "log" config with
   | None -> true
-  | Some open_registration -> (
-    match Scfg.Query.get_param 0 open_registration with
+  | Some log -> (
+    match Scfg.Query.get_param 0 log with
     | Error e -> failwith e
     | Ok "true" -> true
     | Ok "false" -> false
     | Ok _unknown -> failwith "invalid `log` value in configuration file" )
 
 let () = Dream.log "log: %b" log
+
+let admins =
+  let dirs = Scfg.Query.get_dirs "admin" config in
+  List.map
+    (fun dir ->
+      Result.fold ~error:failwith ~ok:Fun.id (Scfg.Query.get_param 0 dir) )
+    dirs

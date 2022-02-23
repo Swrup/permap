@@ -98,10 +98,18 @@ module Q = struct
        ON DELETE CASCADE, FOREIGN KEY(nick) REFERENCES user(nick) ON DELETE \
        CASCADE);"
 
-  let upload_report_post =
+  let upload_report =
     Caqti_request.exec
       Caqti_type.(tup4 string string float string)
       "INSERT INTO report VALUES (?,?,?,?);"
+
+  let ignore_report =
+    Caqti_request.exec Caqti_type.string "DELETE FROM report WHERE post_id=?;"
+
+  let get_reports =
+    Caqti_request.collect Caqti_type.unit
+      Caqti_type.(tup4 string string float string)
+      "SELECT * FROM report;"
 
   let upload_post_id =
     Caqti_request.exec
@@ -468,7 +476,7 @@ let get_ops ids = unwrap_list get_op ids
 
 let try_delete_post ~nick id =
   let* post = get_post id in
-  if post.nick = nick then
+  if post.nick = nick || User.is_admin nick then
     let^ () = Db.exec Q.delete_post id in
     Ok ()
   else Error "You can only delete your posts"
@@ -479,5 +487,16 @@ let report ~nick ~reason id =
   else
     let reason = Dream.html_escape reason in
     let date = Unix.time () in
-    let^ () = Db.exec Q.upload_report_post (nick, reason, date, id) in
+    let^ () = Db.exec Q.upload_report (nick, reason, date, id) in
     Ok ()
+
+let ignore_report id =
+  let^ () = Db.exec Q.ignore_report id in
+  Ok ()
+
+let get_reports () =
+  let^ reports = Db.collect_list Q.get_reports () in
+  let* posts =
+    unwrap_list (fun (_nick, _reason, _date, id) -> get_post id) reports
+  in
+  Ok (posts, reports)

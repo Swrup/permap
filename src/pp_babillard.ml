@@ -159,6 +159,55 @@ let catalog_content () =
        (Format.pp_print_list ~pp_sep:Format.pp_print_space pp_thread_preview)
        ops )
 
+let pp_report fmt post report request =
+  let url = "/admin" in
+  let nick, reason, _date, id = report in
+  let input_post_id fmt id =
+    Format.fprintf fmt
+      {|<input value="%s" name="post_id" type="hidden"></input>|} id
+  in
+  let button fmt value =
+    Format.fprintf fmt
+      {|<button value="%s" name="action" type="submit" class="btn btn-primary">%s</button>|}
+      value
+      (String.uppercase_ascii value)
+  in
+  let form fmt value =
+    Format.fprintf fmt {|%s %a %a </form>|}
+      (Dream.form_tag ~action:url request)
+      input_post_id id button value
+  in
+
+  Format.fprintf fmt
+    {|
+<div class="report">
+    <div class="row mb-3">
+        <div class="col-md-6">
+            %a
+        </div>
+        <div class="col-md-6">
+            <span> From: %s Reason: %s</span>
+            <div>
+                %a
+                </form><br>
+                %a
+                </form><br>
+                %a
+                </form><br>
+            </div>
+        </div>
+    </div>
+</div><br>
+|}
+    pp_post (Post post) nick reason form "ignore" form "delete" form "banish"
+
+let admin_page_content posts reports request =
+  let posts_reports = List.combine posts reports in
+  Format.asprintf "%a"
+    (Format.pp_print_list ~pp_sep:Format.pp_print_space
+       (fun fmt (post, report) -> pp_report fmt post report request) )
+    posts_reports
+
 let pp_thread fmt op posts =
   let thread_data, _post = op in
   (*order by date *)
