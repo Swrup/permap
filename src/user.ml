@@ -70,16 +70,14 @@ let () =
       (List.map (fun query -> Db.exec query ()) tables)
   then Dream.error (fun log -> log "can't create table")
 
-let exists nick = Result.is_ok (Db.find Q.get_user nick)
+let exist nick = Result.is_ok (Db.find Q.get_user nick)
 
 let login ~nick ~password request =
-  if exists nick then
+  if exist nick then
     let^? good_password = Db.find_opt Q.get_password nick in
     if Bcrypt.verify password (Bcrypt.hash_of_string good_password) then
-      let _ =
-        let%lwt () = Dream.invalidate_session request in
-        Dream.put_session "nick" nick request
-      in
+      let _unit_lwt = Dream.invalidate_session request in
+      let _unit_lwt = Dream.put_session "nick" nick request in
       Ok ()
     else Error "wrong password"
   else Error "wrong user name"

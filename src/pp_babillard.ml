@@ -80,7 +80,7 @@ let pp_post fmt t =
       {|
     <div class="post-info">
         <span class="nick">%s</span>
-        <span class="date" data-time="%d"></span>
+        <span class="date" data-time="%f"></span>
         <div class="dropend post-menu-div">
           <a class="dropdown-toggle post-menu-link" href="#" role="button" id="dropdownMenuLink" data-bs-toggle="dropdown" aria-expanded="false">
           </a>
@@ -116,8 +116,8 @@ let pp_post fmt t =
     if Option.is_some thread_data_opt then
       Format.fprintf fmt
         {|<a class="stretched-link preview-link" href="/thread/%s"></a>|} id
-    else Format.fprintf fmt ""
   in
+
   Format.fprintf fmt
     {|
     <div class="position-relative post" id="%s">
@@ -164,10 +164,9 @@ let pp_thread fmt op posts =
   (*order by date *)
   let posts = List.sort (fun a b -> compare a.date b.date) posts in
   let posts_view fmt () =
-    Format.fprintf fmt "%a"
-      (Format.pp_print_list ~pp_sep:Format.pp_print_space (fun fmt post ->
-           pp_post fmt (Post post) ) )
-      posts
+    Format.pp_print_list ~pp_sep:Format.pp_print_space
+      (fun fmt post -> pp_post fmt (Post post))
+      fmt posts
   in
   Format.fprintf fmt
     {|

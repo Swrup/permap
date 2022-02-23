@@ -11,6 +11,8 @@ let of_string = function
 
 let to_string = function Small -> "post-image" | Big -> "post-image-big"
 
+let document = Jv.get Jv.global "document"
+
 (*change postImage class to make it bigger/smaller on click*)
 let image_click post_image event =
   log "image_click@\n";
@@ -33,9 +35,8 @@ let image_click post_image event =
 let render_time date_span =
   log "render time@\n";
   let t =
-    float_of_int
-      (Jv.to_int
-         (Jv.call date_span "getAttribute" [| Jv.of_string "data-time" |]) )
+    Jv.to_float
+      (Jv.call date_span "getAttribute" [| Jv.of_string "data-time" |])
   in
   let t = Unix.localtime t in
   let date =
@@ -46,7 +47,6 @@ let render_time date_span =
 
 let make_pretty _event =
   log "make pretty@\n";
-  let document = Jv.get Jv.global "document" in
 
   let times =
     Jv.to_jv_list

@@ -10,7 +10,7 @@ type thread_data =
 type post =
   { id : string
   ; parent_id : string
-  ; date : int
+  ; date : float
   ; nick : string
   ; comment : string
   ; image_info : (string * string) option
@@ -66,7 +66,7 @@ module Q = struct
 
   let create_post_date_table =
     Caqti_request.exec Caqti_type.unit
-      "CREATE TABLE IF NOT EXISTS post_date (post_id TEXT, date INT, FOREIGN \
+      "CREATE TABLE IF NOT EXISTS post_date (post_id TEXT, date FLOAT, FOREIGN \
        KEY(post_id) REFERENCES post_user(post_id) ON DELETE CASCADE);"
 
   let create_post_comment_table =
@@ -94,13 +94,13 @@ module Q = struct
   let create_report_table =
     Caqti_request.exec Caqti_type.unit
       "CREATE TABLE IF NOT EXISTS report (nick TEXT, reason TEXT, date \
-       INT,post_id TEXT, FOREIGN KEY(post_id) REFERENCES post_user(post_id) ON \
-       DELETE CASCADE, FOREIGN KEY(nick) REFERENCES user(nick) ON DELETE \
+       FLOAT,post_id TEXT, FOREIGN KEY(post_id) REFERENCES post_user(post_id) \
+       ON DELETE CASCADE, FOREIGN KEY(nick) REFERENCES user(nick) ON DELETE \
        CASCADE);"
 
   let upload_report_post =
     Caqti_request.exec
-      Caqti_type.(tup4 string string int string)
+      Caqti_type.(tup4 string string float string)
       "INSERT INTO report VALUES (?,?,?,?);"
 
   let upload_post_id =
@@ -145,7 +145,7 @@ module Q = struct
 
   let upload_post_date =
     Caqti_request.exec
-      Caqti_type.(tup2 string int)
+      Caqti_type.(tup2 string float)
       "INSERT INTO post_date VALUES (?,?);"
 
   let get_post_nick =
@@ -170,7 +170,7 @@ module Q = struct
       "SELECT tag FROM post_tags WHERE post_id=?;"
 
   let get_post_date =
-    Caqti_request.find Caqti_type.string Caqti_type.int
+    Caqti_request.find Caqti_type.string Caqti_type.float
       "SELECT date FROM post_date WHERE post_id=?;"
 
   let get_post_citations =
@@ -381,7 +381,7 @@ let build_reply ~comment ?image ~tags ?parent_id nick =
           | Some (image_info, _image_content) -> Some image_info
         in
         let tag_list = Str.split (Str.regexp " +") tags in
-        let date = int_of_float (Unix.time ()) in
+        let date = Unix.time () in
         let comment, citations = parse_comment comment in
         let reply =
           { id
@@ -430,10 +430,10 @@ let get_post_image_content id =
   let^? content = Db.find_opt Q.get_post_image_content id in
   Ok content
 
-let thread_exists id = Result.is_ok (Db.find Q.get_is_thread id)
+let thread_exist id = Result.is_ok (Db.find Q.get_is_thread id)
 
 (* true if post is an op too *)
-let post_exists id = Result.is_ok (Db.find Q.get_is_post id)
+let post_exist id = Result.is_ok (Db.find Q.get_is_post id)
 
 let get_post id =
   let^ parent_id = Db.find Q.get_post_thread id in
@@ -451,7 +451,7 @@ let get_post id =
   Ok reply
 
 let get_thread_data id =
-  if thread_exists id then
+  if thread_exist id then
     let^? subject, lat, lng = Db.find_opt Q.get_thread_info id in
     let thread_data = { subject; lat; lng } in
     Ok thread_data
@@ -474,8 +474,10 @@ let try_delete_post ~nick id =
   else Error "You can only delete your posts"
 
 let report ~nick ~reason id =
-  if not (post_exists id) then Error "This post doesn't exists"
+  if not (post_exist id) then Error "This post doesn't exists"
+  else if String.length reason > 2000 then Error "Your reason is too long.."
   else
-    let date = int_of_float (Unix.time ()) in
+    let reason = Dream.html_escape reason in
+    let date = Unix.time () in
     let^ () = Db.exec Q.upload_report_post (nick, reason, date, id) in
     Ok ()

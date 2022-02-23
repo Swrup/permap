@@ -124,7 +124,7 @@ let user request =
 
 let user_profile request =
   let nick = Dream.param request "user" in
-  if User.exists nick then
+  if User.exist nick then
     render_unsafe
       (Result.fold ~ok:Fun.id ~error:Fun.id (User.public_profile nick))
       request
@@ -171,7 +171,7 @@ let profile_post request =
 
 let avatar_image request =
   let nick = Dream.param request "user" in
-  if User.exists nick then
+  if User.exist nick then
     let avatar = User.get_avatar nick in
     match avatar with
     | Ok (Some avatar) ->
@@ -185,7 +185,7 @@ let avatar_image request =
 
 let post_image request =
   let post_id = Dream.param request "post_id" in
-  if Babillard.post_exists post_id then
+  if Babillard.post_exist post_id then
     let image = Babillard.get_post_image_content post_id in
     match image with
     | Ok image -> Dream.respond ~headers:[ ("Content-Type", "image") ] image
@@ -241,7 +241,7 @@ let babillard_post request =
 
 let thread_get request =
   let thread_id = Dream.param request "thread_id" in
-  if Babillard.thread_exists thread_id then
+  if Babillard.thread_exist thread_id then
     let thread_view = Pp_babillard.view_thread thread_id in
     let res =
       match thread_view with
