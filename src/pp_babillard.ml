@@ -221,7 +221,7 @@ let pp_thread fmt op posts =
     {|
 <div class="thread">
     <div class="thread-subject">
-        %s
+        <h1>%s</h1>
     </div>
     <div class="thread-posts">
         %a
