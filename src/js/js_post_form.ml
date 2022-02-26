@@ -5,15 +5,15 @@ let log = Format.printf
 let insert_quote post_id _event =
   log "quote@\n";
   Option.iter
-    (fun comment_textarea ->
-      let content = Jv.get comment_textarea "value" in
+    (fun textarea ->
+      let content = Jv.to_string @@ Jv.get textarea "value" in
       let new_content =
-        Jv.call content "concat"
-          [| Jv.of_string "\n>>"; post_id; Jv.of_string " " |]
+        if String.ends_with ~suffix:"\n" content || String.length content = 0
+        then Format.sprintf "%s>>%s " content post_id
+        else Format.sprintf "%s\n>>%s " content post_id
       in
-      ignore @@ Jv.set comment_textarea "value" new_content )
-    Jv.(find global "reply-comment");
-  Jv.undefined
+      ignore @@ Jv.set textarea "value" (Jv.of_string new_content) )
+    Jv.(find global "reply-comment")
 
 let () =
   log "add inser_quote event on post links@\n";
@@ -25,7 +25,8 @@ let () =
   log "quote_links leng %d@\n" (List.length quote_links);
   let add_click quote_link =
     let post_id =
-      Jv.call quote_link "getAttribute" [| Jv.of_string "data-id" |]
+      Jv.to_string
+      @@ Jv.call quote_link "getAttribute" [| Jv.of_string "data-id" |]
     in
     ignore
     @@ Jv.call quote_link "addEventListener"
