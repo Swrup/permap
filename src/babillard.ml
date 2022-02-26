@@ -266,70 +266,49 @@ let parse_image image =
        -keeps tracks of every post cited in this comment
       - add <br> at each line *)
 let parse_comment comment =
-  let handle_word w =
+  let citations = ref [] in
+
+  let pp_word fmt w =
     let trim_w = String.trim w in
     (* '>' is '&gt;' after html_escape *)
     if String.starts_with ~prefix:{|&gt;&gt;|} trim_w then
       let sub_w = String.sub trim_w 8 (String.length trim_w - 8) in
-      match Uuidm.of_string sub_w with
-      | None -> (w, None)
-      | Some _ ->
-        let new_w = Format.sprintf {|<a href="#%s">%s</a>|} sub_w w in
-        (new_w, Some sub_w)
-    else (w, None)
+      if Option.is_some (Uuidm.of_string sub_w) then (
+        citations := sub_w :: !citations;
+        Format.fprintf fmt {|<a href="#%s">%s</a>|} sub_w w )
+      else Format.pp_print_string fmt w
+    else Format.pp_print_string fmt w
   in
-  let handle_line l =
+  let pp_line fmt l =
     let trim_w = String.trim l in
     (*insert quote*)
-    let line =
-      match
-        String.starts_with ~prefix:{|&gt;|} trim_w
-        && not (String.starts_with ~prefix:{|&gt;&gt;|} trim_w)
-      with
-      | false -> l
-      | true -> {|<span class="quote">|} ^ l ^ {|</span>|}
-    in
-    let words = String.split_on_char ' ' line in
-    let words, cited_posts =
-      List.fold_left
-        (fun (acc_words, acc_cited_posts) w ->
-          match handle_word w with
-          | w, Some cited_id -> (w :: acc_words, cited_id :: acc_cited_posts)
-          | w, None -> (w :: acc_words, acc_cited_posts) )
-        ([], []) words
-    in
-    let words = List.rev words in
-    let line =
-      Format.asprintf "%a"
-        (Format.pp_print_list
-           ~pp_sep:(fun fmt () -> Format.fprintf fmt " ")
-           Format.pp_print_string )
+    let words = String.split_on_char ' ' l in
+    if
+      String.starts_with ~prefix:{|&gt;|} trim_w
+      && not (String.starts_with ~prefix:{|&gt;&gt;|} trim_w)
+    then
+      Format.fprintf fmt {|<span class="quote">%a</span>|}
+        (Format.pp_print_list ~pp_sep:Format.pp_print_space pp_word)
         words
-    in
-    (line, cited_posts)
+    else
+      Format.fprintf fmt "%a"
+        (Format.pp_print_list ~pp_sep:Format.pp_print_space pp_word)
+        words
   in
 
   let comment = String.trim comment in
   let lines = String.split_on_char '\n' comment in
-  let lines, cited_posts =
-    List.fold_left
-      (fun (acc_lines, acc_cited_posts) l ->
-        let line, cited_posts = handle_line l in
-        (line :: acc_lines, cited_posts @ acc_cited_posts) )
-      ([], []) lines
-  in
-  let lines = List.rev lines in
   (*insert <br>*)
   let comment =
     Format.asprintf "%a"
       (Format.pp_print_list
-         ~pp_sep:(fun fmt () -> Format.fprintf fmt "@.<br>")
-         Format.pp_print_string )
+         ~pp_sep:(fun fmt () -> Format.fprintf fmt "@\n<br>")
+         pp_line )
       lines
   in
   (* remove duplicate cited_id *)
-  let cited_posts = List.sort_uniq String.compare cited_posts in
-  (comment, cited_posts)
+  let citations = List.sort_uniq String.compare !citations in
+  (comment, citations)
 
 let upload_post ?image_content post =
   let thread_data, reply =
