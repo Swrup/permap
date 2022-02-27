@@ -272,9 +272,6 @@ let get_markers () =
   in
   Ok markers
 
-(* TODO get from config file? *)
-let server_url = "http://localhost:3696"
-
 (* RFC-3339 date-time *)
 let pp_date fmt date =
   let date = Unix.gmtime date in
@@ -285,7 +282,7 @@ let pp_feed_entry fmt post =
   Format.fprintf fmt
     {|
   <entry>
-    <title>Atom-Powered Robots Run Amok</title>
+    <title></title>
     <id>urn:uuid:%s</id>
     <updated>%a</updated>
   <author>
@@ -297,7 +294,7 @@ let pp_feed_entry fmt post =
     |}
     post.id pp_date post.date post.nick
     (Dream.html_escape post.comment)
-    server_url post.parent_id post.id
+    App.hostname post.parent_id post.id
 
 let feed thread_id =
   let* thread_data, op_post = get_op thread_id in
@@ -308,12 +305,11 @@ let feed thread_id =
   let entries fmt () =
     (Format.pp_print_list ~pp_sep:Format.pp_print_space pp_feed_entry) fmt posts
   in
-  (*TODO different  uuid for op and thread ..?*)
   let feed =
     Format.asprintf
       {|<?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
-  <title>%s | Permap </title>
+  <title>%s</title>
   <link rel="self" href="%s/thread/%s"/>
   <updated>%a</updated>
   <author>
@@ -321,9 +317,8 @@ let feed thread_id =
   </author>
   <id>urn:uuid:%s</id>
   %a
-</feed>
-    |}
-      thread_data.subject server_url thread_id pp_date last_update op_post.nick
-      op_post.id entries ()
+</feed>|}
+      thread_data.subject App.hostname thread_id pp_date last_update
+      op_post.nick op_post.id entries ()
   in
   Ok feed
