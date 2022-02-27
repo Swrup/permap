@@ -291,8 +291,7 @@ let babillard_post request =
 let thread_feed_get request =
   let thread_id = Dream.param request "thread_id" in
   if Babillard.thread_exist thread_id then
-    let feed = Pp_babillard.feed thread_id in
-    match feed with
+    match Pp_babillard.feed thread_id with
     | Error e -> render_unsafe e request
     | Ok feed ->
       Dream.respond ~headers:[ ("Content-Type", "application/atom+xml") ] feed

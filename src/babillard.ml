@@ -271,11 +271,15 @@ let parse_comment comment =
   let pp_word fmt w =
     let trim_w = String.trim w in
     (* '>' is '&gt;' after html_escape *)
-    if String.starts_with ~prefix:{|&gt;&gt;|} trim_w then
+    if String.length trim_w >= 8 then
       let sub_w = String.sub trim_w 8 (String.length trim_w - 8) in
-      if Option.is_some (Uuidm.of_string sub_w) then (
+      if
+        String.starts_with ~prefix:{|&gt;&gt;|} trim_w
+        && Option.is_some (Uuidm.of_string sub_w)
+      then begin
         citations := sub_w :: !citations;
-        Format.fprintf fmt {|<a href="#%s">%s</a>|} sub_w w )
+        Format.fprintf fmt {|<a href="#%s">%s</a>|} sub_w w
+      end
       else Format.pp_print_string fmt w
     else Format.pp_print_string fmt w
   in
@@ -290,10 +294,7 @@ let parse_comment comment =
       Format.fprintf fmt {|<span class="quote">%a</span>|}
         (Format.pp_print_list ~pp_sep:Format.pp_print_space pp_word)
         words
-    else
-      Format.fprintf fmt "%a"
-        (Format.pp_print_list ~pp_sep:Format.pp_print_space pp_word)
-        words
+    else Format.pp_print_list ~pp_sep:Format.pp_print_space pp_word fmt words
   in
 
   let comment = String.trim comment in
@@ -370,7 +371,7 @@ let build_reply ~comment ?image ~tags ?parent_id nick =
         let tag_list =
           List.map String.lowercase_ascii
           @@ List.sort_uniq String.compare
-          @@ List.filter (fun s -> not (String.equal "" s))
+          @@ List.filter (( <> ) "")
           @@ List.map String.trim
           @@ Str.split (Str.regexp ",+") tags
         in
@@ -467,7 +468,7 @@ let try_delete_post ~nick id =
   else Error "You can only delete your posts"
 
 let report ~nick ~reason id =
-  if not (post_exist id) then Error "This post doesn't exists"
+  if not (post_exist id) then Error "This post exists not"
   else if String.length reason > 2000 then Error "Your reason is too long.."
   else
     let reason = Dream.html_escape reason in

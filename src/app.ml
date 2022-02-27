@@ -42,14 +42,6 @@ let open_registration =
 
 let () = Dream.log "open_registration: %b" open_registration
 
-let hostname =
-  match Scfg.Query.get_dir "hostname" config with
-  | None -> failwith "no `hostname` in configuration file"
-  | Some hostname ->
-    Result.fold ~error:failwith ~ok:Fun.id (Scfg.Query.get_param 0 hostname)
-
-let () = Dream.log "hostname: %s" hostname
-
 let port =
   match Scfg.Query.get_dir "port" config with
   | None -> 8080
@@ -65,6 +57,14 @@ let port =
         failwith "invalid `port` value in configuration file" ) )
 
 let () = Dream.log "port: %d" port
+
+let hostname =
+  match Scfg.Query.get_dir "hostname" config with
+  | None -> Format.sprintf "localhost:%d" port
+  | Some hostname ->
+    Result.fold ~error:failwith ~ok:Fun.id (Scfg.Query.get_param 0 hostname)
+
+let () = Dream.log "hostname: %s" hostname
 
 let log =
   match Scfg.Query.get_dir "log" config with

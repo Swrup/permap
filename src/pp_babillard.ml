@@ -301,7 +301,10 @@ let feed thread_id =
   let^ ids = Db.collect_list Q.get_thread_posts thread_id in
   let* posts = get_posts ids in
   let posts = List.sort (fun a b -> compare b.date a.date) posts in
-  let last_update = (List.nth posts 0).date in
+  let* last_update =
+    match posts with op :: _ -> Ok op.date | _ -> Error "empty thread"
+  in
+
   let entries fmt () =
     (Format.pp_print_list ~pp_sep:Format.pp_print_space pp_feed_entry) fmt posts
   in

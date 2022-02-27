@@ -10,7 +10,7 @@ let insert_quote post_id _event =
       let new_content =
         if String.ends_with ~suffix:"\n" content || String.length content = 0
         then Format.sprintf "%s>>%s " content post_id
-        else Format.sprintf "%s\n>>%s " content post_id
+        else Format.sprintf "%s@\n>>%s " content post_id
       in
       ignore @@ Jv.set textarea "value" (Jv.of_string new_content) )
     Jv.(find global "reply-comment")
