@@ -1,9 +1,10 @@
 let f thread_view thread_id request =
 <script type="text/javascript" src="/assets/js/js_thread.js" defer="defer"></script>
       <%s! thread_view %>
+% let thread_url = Format.sprintf "/thread/%s" thread_id in
 % begin match Dream.session "nick" request with
 % | None ->
-% let redirect = Dream.to_percent_encoded (Format.sprintf "/thread/%s" thread_id) in
+% let redirect = Dream.to_percent_encoded thread_url in
 <a href="/login?redirect=<%s redirect%>">Login to reply!</a>
 % | Some _ ->
     <div class="post-form">
@@ -25,3 +26,8 @@ let f thread_view thread_id request =
       </div>
     </form>
 % end;
+% let feed_url = Format.sprintf "%s/feed" thread_url in
+<a type="application/atom+xml" href=<%s! feed_url %> >
+    <img src="/assets/img/atom.svg" class="rss-logo" />
+</a>
+<link rel="alternate" type="application/atom+xml" href=<%s! feed_url %> />

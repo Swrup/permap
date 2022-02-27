@@ -141,3 +141,9 @@ a.post-menu-link {
   text-decoration: none;
   color: green;
 }
+
+.rss-logo {
+  height: 30px;
+  width: auto;
+  float: right;
+}

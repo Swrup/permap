@@ -288,6 +288,16 @@ let babillard_post request =
     | `Wrong_session _ | `Wrong_content_type ->
       Dream.empty `Bad_Request )
 
+let thread_feed_get request =
+  let thread_id = Dream.param request "thread_id" in
+  if Babillard.thread_exist thread_id then
+    let feed = Pp_babillard.feed thread_id in
+    match feed with
+    | Error e -> render_unsafe e request
+    | Ok feed ->
+      Dream.respond ~headers:[ ("Content-Type", "application/atom+xml") ] feed
+  else Dream.respond ~status:`Not_Found "Thread not found"
+
 let thread_get request =
   let thread_id = Dream.param request "thread_id" in
   if Babillard.thread_exist thread_id then
@@ -371,6 +381,7 @@ let routes =
   ; post "/report/:post_id" report_post
   ; get_ "/thread/:thread_id" thread_get
   ; post "/thread/:thread_id" reply_post
+  ; get_ "/thread/:thread_id/feed" thread_feed_get
   ; get_ "/user" user
   ; get_ "/user/:user" user_profile
   ; get_ "/user/:user/avatar" avatar_image

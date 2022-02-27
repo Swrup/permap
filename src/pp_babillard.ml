@@ -271,3 +271,59 @@ let get_markers () =
       ops
   in
   Ok markers
+
+(* TODO get from config file? *)
+let server_url = "http://localhost:3696"
+
+(* RFC-3339 date-time *)
+let pp_date fmt date =
+  let date = Unix.gmtime date in
+  Format.fprintf fmt "%04d-%02d-%02dT%02d:%02d:%02dZ" (1900 + date.tm_year)
+    (1 + date.tm_mon) date.tm_mday date.tm_hour date.tm_min date.tm_sec
+
+let pp_feed_entry fmt post =
+  Format.fprintf fmt
+    {|
+  <entry>
+    <title>Atom-Powered Robots Run Amok</title>
+    <id>urn:uuid:%s</id>
+    <updated>%a</updated>
+  <author>
+    <name>%s</name>
+  </author>
+    <content type="html">%s</content>
+    <link rel="alternate" href="%s/thread/%s#%s"/>
+  </entry>
+    |}
+    post.id pp_date post.date post.nick
+    (Dream.html_escape post.comment)
+    server_url post.parent_id post.id
+
+let feed thread_id =
+  let* thread_data, op_post = get_op thread_id in
+  let^ ids = Db.collect_list Q.get_thread_posts thread_id in
+  let* posts = get_posts ids in
+  let posts = List.sort (fun a b -> compare b.date a.date) posts in
+  let last_update = (List.nth posts 0).date in
+  let entries fmt () =
+    (Format.pp_print_list ~pp_sep:Format.pp_print_space pp_feed_entry) fmt posts
+  in
+  (*TODO different  uuid for op and thread ..?*)
+  let feed =
+    Format.asprintf
+      {|<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>%s | Permap </title>
+  <link rel="self" href="%s/thread/%s"/>
+  <updated>%a</updated>
+  <author>
+    <name>%s</name>
+  </author>
+  <id>urn:uuid:%s</id>
+  %a
+</feed>
+    |}
+      thread_data.subject server_url thread_id pp_date last_update op_post.nick
+      op_post.id entries ()
+  in
+  Ok feed
