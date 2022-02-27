@@ -367,7 +367,13 @@ let build_reply ~comment ?image ~tags ?parent_id nick =
           | None -> None
           | Some (image_info, _image_content) -> Some image_info
         in
-        let tag_list = Str.split (Str.regexp " +") tags in
+        let tag_list =
+          List.map String.lowercase_ascii
+          @@ List.sort_uniq String.compare
+          @@ List.filter (fun s -> not (String.equal "" s))
+          @@ List.map String.trim
+          @@ Str.split (Str.regexp ",+") tags
+        in
         let date = Unix.time () in
         let comment, citations = parse_comment comment in
         let reply =
