@@ -225,22 +225,22 @@ end
 
 let () =
   let tables =
-    [ Q.create_post_user_table
-    ; Q.create_thread_info_table
-    ; Q.create_thread_post_table
-    ; Q.create_post_replies_table
-    ; Q.create_post_citations_table
-    ; Q.create_post_date_table
-    ; Q.create_post_comment_table
-    ; Q.create_image_info_table
-    ; Q.create_image_content_table
-    ; Q.create_post_tags_table
-    ; Q.create_report_table
-    ]
+    [| Q.create_post_user_table
+     ; Q.create_thread_info_table
+     ; Q.create_thread_post_table
+     ; Q.create_post_replies_table
+     ; Q.create_post_citations_table
+     ; Q.create_post_date_table
+     ; Q.create_post_comment_table
+     ; Q.create_image_info_table
+     ; Q.create_image_content_table
+     ; Q.create_post_tags_table
+     ; Q.create_report_table
+    |]
   in
   if
-    List.exists Result.is_error
-      (List.map (fun query -> Db.exec query ()) tables)
+    Array.exists Result.is_error
+      (Array.map (fun query -> Db.exec query ()) tables)
   then Dream.error (fun log -> log "can't create table")
 
 let parse_image image =

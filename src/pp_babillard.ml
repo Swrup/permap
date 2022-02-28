@@ -302,7 +302,7 @@ let feed thread_id =
   let* posts = get_posts ids in
   let posts = List.sort (fun a b -> compare b.date a.date) posts in
   let* last_update =
-    match posts with op :: _ -> Ok op.date | _ -> Error "empty thread"
+    match posts with [] -> Error "empty thread" | op :: _l -> Ok op.date
   in
 
   let entries fmt () =

@@ -80,10 +80,10 @@ module Q = struct
 end
 
 let () =
-  let tables = [ Q.create_user_table; Q.create_banished_table ] in
+  let tables = [| Q.create_user_table; Q.create_banished_table |] in
   if
-    List.exists Result.is_error
-      (List.map (fun query -> Db.exec query ()) tables)
+    Array.exists Result.is_error
+      (Array.map (fun query -> Db.exec query ()) tables)
   then Dream.error (fun log -> log "can't create table")
 
 let exist nick = Result.is_ok (Db.find Q.get_user nick)
