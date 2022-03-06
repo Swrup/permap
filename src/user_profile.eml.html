@@ -1,17 +1,26 @@
-let f nick bio request =
-  <h1><%s  Format.sprintf "Hello %s !" nick %></h1>
-  <p>Check your <a href="/user/<%s nick %>">public profile rendering</a>.</p>
+let f (user: User.t) request =
+  <h1><%s  Format.sprintf "Hello %s !" user.nick %></h1>
+  <p>Check your <a href="/user/<%s user.nick %>">public profile rendering</a>.</p>
   <h2>Edit profile</h2>
   <%s! Dream.form_tag ~action:"/profile" request %>
     <div class="mb-3">
+      <label for="display-nick" class="form-label">Change display name</label>
+      <input name="display-nick" type="text" class="form-control" id="display-nick" value="<%s! user.display_nick %>"></input>
+    </div>
+    <button type="submit" class="btn btn-primary">Save</button>
+  </form>
+  <br />
+  <br />
+  <%s! Dream.form_tag ~action:"/profile" request %>
+    <div class="mb-3">
       <label for="bio" class="form-label">Bio</label>
-      <textarea name="bio" type="text" class="form-control" id="bio" aria-describedby="bioHelp"><%s! bio %></textarea>
+      <textarea name="bio" type="text" class="form-control" id="bio" aria-describedby="bioHelp"><%s! user.bio %></textarea>
       <div id="bioHelp" class="form-text">Who are you?</div>
     </div>
     <button type="submit" class="btn btn-primary">Save</button>
   </form>
   <br />
-  <img src="/user/<%s nick %>/avatar" class="img-thumbnail" alt="Your avatar picture" />
+  <img src="/user/<%s user.nick %>/avatar" class="img-thumbnail" alt="Your avatar picture" />
   <br />
   <br />
   <%s! Dream.form_tag ~action:"/profile" ~enctype:`Multipart_form_data request %>

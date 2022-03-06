@@ -12,6 +12,7 @@ type post =
   ; parent_id : string
   ; date : float
   ; nick : string
+  ; display_nick : string
   ; comment : string
   ; image_info : (string * string) option
   ; tags : string list
@@ -241,7 +242,7 @@ let () =
   if
     Array.exists Result.is_error
       (Array.map (fun query -> Db.exec query ()) tables)
-  then Dream.error (fun log -> log "can't create table")
+  then Dream.error (fun log -> log "can't create babillard's tables")
 
 let parse_image image =
   match image with
@@ -377,11 +378,13 @@ let build_reply ~comment ?image ~tags ?parent_id nick =
         in
         let date = Unix.time () in
         let comment, citations = parse_comment comment in
+        let* display_nick = User.get_display_nick nick in
         let reply =
           { id
           ; parent_id
           ; date
           ; nick
+          ; display_nick
           ; comment
           ; image_info
           ; tags = tag_list
@@ -432,6 +435,7 @@ let post_exist id = Result.is_ok (Db.find Q.get_is_post id)
 let get_post id =
   let^ parent_id = Db.find Q.get_post_thread id in
   let^ nick = Db.find Q.get_post_nick id in
+  let* display_nick = User.get_display_nick nick in
   let^ comment = Db.find Q.get_post_comment id in
   let^ date = Db.find Q.get_post_date id in
   let^ image_info = Db.find_opt Q.get_post_image_info id in
@@ -440,7 +444,17 @@ let get_post id =
   let^ replies = Db.collect_list Q.get_post_replies id in
   let^ citations = Db.collect_list Q.get_post_citations id in
   let reply =
-    { id; parent_id; date; nick; comment; image_info; tags; replies; citations }
+    { id
+    ; parent_id
+    ; date
+    ; nick
+    ; display_nick
+    ; comment
+    ; image_info
+    ; tags
+    ; replies
+    ; citations
+    }
   in
   Ok reply
 

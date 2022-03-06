@@ -12,6 +12,7 @@ let pp_post fmt t =
       ; parent_id = _parent_id
       ; date
       ; nick
+      ; display_nick
       ; comment
       ; image_info
       ; tags
@@ -79,7 +80,7 @@ let pp_post fmt t =
     Format.fprintf fmt
       {|
     <div class="post-info">
-        <span class="nick">%s</span>
+        <span class="display-nick" data-nick="%s">%s</span>
         <span class="date" data-time="%f"></span>
         <div class="dropend post-menu-div">
           <a class="dropdown-toggle post-menu-link" href="#" role="button" id="dropdownMenuLink" data-bs-toggle="dropdown" aria-expanded="false">
@@ -92,7 +93,7 @@ let pp_post fmt t =
         </div>
         %a
     </div>|}
-      nick date id id id post_links_view ()
+      nick display_nick date id id id post_links_view ()
   in
 
   let pp_print_tag fmt tag =

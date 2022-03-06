@@ -186,10 +186,12 @@ let profile_get request =
   match Dream.session "nick" request with
   | None -> render_unsafe "Not logged in" request
   | Some nick ->
-    if User.exist nick then
-      let bio = match User.get_bio nick with Ok bio -> bio | Error e -> e in
-      render_unsafe (User_profile.f nick bio request) request
-    else Dream.respond ~status:`Not_Found "User does not exists"
+    let res =
+      match User.get_user nick with
+      | Error e -> e
+      | Ok user -> User_profile.f user request
+    in
+    render_unsafe res request
 
 let profile_post request =
   match Dream.session "nick" request with
@@ -202,6 +204,13 @@ let profile_post request =
         Dream.respond ~status:`See_Other
           ~headers:[ ("Location", "/profile") ]
           "Your bio was updated!"
+      | Error e -> render_unsafe e request )
+    | `Ok [ ("display-nick", display_nick) ] -> (
+      match User.update_display_nick display_nick nick with
+      | Ok () ->
+        Dream.respond ~status:`See_Other
+          ~headers:[ ("Location", "/profile") ]
+          "Your display nick was updated!"
       | Error e -> render_unsafe e request )
     | `Ok _ | `Many_tokens _ | `Missing_token _ | `Invalid_token _
     | `Wrong_session _ | `Expired _ | `Wrong_content_type -> (

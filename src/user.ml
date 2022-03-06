@@ -3,6 +3,7 @@ open Db
 
 type t =
   { nick : string
+  ; display_nick : string
   ; password : string
   ; email : string
   ; bio : string
@@ -12,8 +13,8 @@ type t =
 module Q = struct
   let create_user_table =
     Caqti_request.exec Caqti_type.unit
-      "CREATE TABLE IF NOT EXISTS user (nick TEXT, password TEXT, email TEXT, \
-       bio TEXT, avatar BLOB, PRIMARY KEY(nick));"
+      "CREATE TABLE IF NOT EXISTS user (nick TEXT, display_nick TEXT, password \
+       TEXT, email TEXT, bio TEXT, avatar BLOB, PRIMARY KEY(nick));"
 
   let get_password =
     Caqti_request.find_opt Caqti_type.string Caqti_type.string
@@ -25,10 +26,11 @@ module Q = struct
       Caqti_type.int
       "SELECT EXISTS(SELECT 1 FROM user WHERE nick=? OR email=?);"
 
-  let inser_new_user =
+  let upload_user =
     Caqti_request.exec
-      Caqti_type.(tup4 string string string Caqti_type.(tup2 string string))
-      "INSERT INTO user VALUES (?, ?, ?, ?, ?);"
+      Caqti_type.(
+        tup4 string string string Caqti_type.(tup3 string string string))
+      "INSERT INTO user VALUES (?, ?, ?, ?, ?, ?);"
 
   let list_nicks =
     Caqti_request.collect Caqti_type.unit Caqti_type.string
@@ -36,7 +38,9 @@ module Q = struct
 
   let get_user =
     Caqti_request.find Caqti_type.string
-      Caqti_type.(tup4 string string string Caqti_type.(tup2 string string))
+      (* there is no "tup6" *)
+      Caqti_type.(
+        tup4 string string string Caqti_type.(tup3 string string string))
       "SELECT * FROM user WHERE nick=?;"
 
   let update_bio =
@@ -44,16 +48,35 @@ module Q = struct
       Caqti_type.(tup2 string string)
       "UPDATE user SET bio=? WHERE nick=?;"
 
+  let update_display_nick =
+    Caqti_request.exec
+      Caqti_type.(tup2 string string)
+      "UPDATE user SET display_nick=? WHERE nick=?;"
+
+  let update_email =
+    Caqti_request.exec
+      Caqti_type.(tup2 string string)
+      "UPDATE user SET email=? WHERE nick=?;"
+
+  let update_password =
+    Caqti_request.exec
+      Caqti_type.(tup2 string string)
+      "UPDATE user SET password=? WHERE nick=?;"
+
+  let get_display_nick =
+    Caqti_request.find Caqti_type.string Caqti_type.string
+      "SELECT display_nick FROM user WHERE nick=?;"
+
   let get_bio =
-    Caqti_request.find_opt Caqti_type.string Caqti_type.string
+    Caqti_request.find Caqti_type.string Caqti_type.string
       "SELECT bio FROM user WHERE nick=?;"
 
   let get_email =
-    Caqti_request.find_opt Caqti_type.string Caqti_type.string
+    Caqti_request.find Caqti_type.string Caqti_type.string
       "SELECT email FROM user WHERE nick=?;"
 
   let get_avatar =
-    Caqti_request.find_opt Caqti_type.string Caqti_type.string
+    Caqti_request.find Caqti_type.string Caqti_type.string
       "SELECT avatar FROM user WHERE nick=?;"
 
   let upload_avatar =
@@ -84,9 +107,15 @@ let () =
   if
     Array.exists Result.is_error
       (Array.map (fun query -> Db.exec query ()) tables)
-  then Dream.error (fun log -> log "can't create table")
+  then Dream.error (fun log -> log "can't create user tables")
 
 let exist nick = Result.is_ok (Db.find Q.get_user nick)
+
+let get_user nick =
+  let^? nick, display_nick, password, (email, bio, avatar) =
+    Db.find_opt Q.get_user nick
+  in
+  Ok { nick; display_nick; password; email; bio; avatar }
 
 let is_banished nick = Result.is_ok (Db.find Q.get_banished nick)
 
@@ -101,13 +130,13 @@ let login ~nick ~password request =
   else if is_banished nick then Error "YOU ARE BANISHED"
   else Error "wrong user name"
 
+let valid_nick nick =
+  String.length nick < 64
+  && String.length nick > 0
+  && Dream.html_escape nick = nick
+
 let register ~email ~nick ~password =
-  (* TODO: remove bad characters (e.g. delthas) *)
-  let valid_nick =
-    String.length nick < 64
-    && String.length nick > 0
-    && Dream.html_escape nick = nick
-  in
+  let valid_nick = valid_nick nick in
 
   let valid_email =
     match Emile.of_string email with Ok _ -> true | Error _ -> false
@@ -126,7 +155,7 @@ let register ~email ~nick ~password =
   else
     let^? nb = Db.find_opt Q.is_already_user (nick, email) in
     if nb = 0 then
-      let^ () = Db.exec Q.inser_new_user (nick, password, email, ("", "")) in
+      let^ () = Db.exec Q.upload_user (nick, nick, password, (email, "", "")) in
       Ok ()
     else Error "nick or email already exists"
 
@@ -140,7 +169,7 @@ let list () =
        users )
 
 let public_profile nick =
-  let^? nick, _password, _email, (bio, _) = Db.find_opt Q.get_user nick in
+  let* user = get_user nick in
   let user_info =
     Format.sprintf
       {|
@@ -155,7 +184,7 @@ let public_profile nick =
       </div>
     </div>
 |}
-      nick bio nick
+      user.nick user.bio user.nick
   in
   Ok user_info
 
@@ -180,6 +209,10 @@ let get_email nick =
   let^? email = Db.find_opt Q.get_email nick in
   Ok email
 
+let get_display_nick nick =
+  let^? display_nick = Db.find_opt Q.get_display_nick nick in
+  Ok display_nick
+
 let get_avatar nick =
   let^? avatar = Db.find_opt Q.get_avatar nick in
   if String.length avatar = 0 then Ok None else Ok (Some avatar)
@@ -201,3 +234,9 @@ let banish nick =
   let^ () = Db.exec Q.delete_user nick in
   let^ () = Db.exec Q.upload_banished (nick, email) in
   Ok ()
+
+let update_display_nick display_nick nick =
+  if valid_nick display_nick then
+    let^ () = Db.exec Q.update_display_nick (display_nick, nick) in
+    Ok ()
+  else Error "invalid display nick"
