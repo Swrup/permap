@@ -1,0 +1,28 @@
+let f (user: User.t) request =
+  <h1><%s  Format.sprintf "Account settings" %></h1>
+  <h2>Change email</h2>
+  <%s! Dream.form_tag ~action:"/account" request %>
+    <div class="mb-3">
+      <label for="email" class="form-label">Email:</label>
+      <input name="email" type="text" class="form-control" id="email" value="<%s! user.email %>"></input>
+    </div>
+    <button type="submit" class="btn btn-primary">Save</button>
+  </form>
+  <br />
+  <br />
+  <h2>Change password</h2>
+  <%s! Dream.form_tag ~action:"/account" request %>
+    <div class="mb-3">
+      <label for="new-password" class="form-label">New password:</label>
+      <input name="new-password" type="password" class="form-control" id="new-password"></input>
+      <label for="confirm-new-password" class="form-label">Confirm new password:</label>
+      <input name="confirm-new-password" type="password" class="form-control" id="confirm-new-password"></input>
+    </div>
+    <button type="submit" class="btn btn-primary">Save</button>
+  </form>
+  <br />
+  <br />
+  <h2>Delete account</h2>
+  <%s! Dream.form_tag ~action:"/account" request %>
+    <button name="delete" id="delete-button" type="submit" class="btn btn-danger">DELETE ACCOUNT</button>
+  </form>

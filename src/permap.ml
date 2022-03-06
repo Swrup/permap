@@ -20,6 +20,14 @@ let render_unsafe ?title content request =
   in
   Dream.html @@ Template.render_unsafe ~title ~content request
 
+let not_logged_in redirect request =
+  let content =
+    Format.sprintf
+      {|Not logged in, please <a href="/login?redirect=%s">login<a> to access this page|}
+      (Dream.to_percent_encoded redirect)
+  in
+  render_unsafe content request
+
 let asset_loader _root path _request =
   match Content.read ("assets/" ^ path) with
   | None -> Dream.empty `Not_Found
@@ -84,7 +92,7 @@ let admin_get request =
 
 let admin_post request =
   match Dream.session "nick" request with
-  | None -> render_unsafe "Not logged in" request
+  | None -> not_logged_in "/admin" request
   | Some nick -> (
     if not (User.is_admin nick) then Dream.respond ~status:`Forbidden ""
     else
@@ -127,7 +135,7 @@ let delete_get request =
 let delete_post request =
   let post_id = Dream.param request "post_id" in
   match Dream.session "nick" request with
-  | None -> render_unsafe "Not logged in" request
+  | None -> not_logged_in (Format.sprintf "/delete/%s" post_id) request
   | Some nick -> (
     (* match on Dream.form needed for hidden csrf field *)
     match%lwt Dream.form request with
@@ -152,7 +160,7 @@ let report_get request =
 let report_post request =
   let post_id = Dream.param request "post_id" in
   match Dream.session "nick" request with
-  | None -> render_unsafe "Not logged in" request
+  | None -> not_logged_in (Format.sprintf "/report/%s" post_id) request
   | Some nick -> (
     match%lwt Dream.form request with
     | `Ok [ ("reason", reason) ] ->
@@ -182,9 +190,57 @@ let logout request =
   let content = "Logged out !" in
   render_unsafe content request
 
+let account_get request =
+  match Dream.session "nick" request with
+  | None -> not_logged_in "/account" request
+  | Some nick ->
+    let res =
+      match User.get_user nick with
+      | Error e -> e
+      | Ok user -> User_account.f user request
+    in
+    render_unsafe res request
+
+(*TODO ask for password *)
+let account_post request =
+  match Dream.session "nick" request with
+  | None -> not_logged_in "/account" request
+  | Some nick -> (
+    match%lwt Dream.form request with
+    | `Ok [ ("delete", _) ] ->
+      (*TODO ask for confirmation *)
+      let res =
+        Result.fold ~error:Fun.id
+          ~ok:(fun _ -> "Your account was deleted")
+          (User.delete_user nick)
+      in
+      render_unsafe res request
+    | `Ok [ ("email", email) ] ->
+      let res =
+        Result.fold ~error:Fun.id
+          ~ok:(fun _ -> "Your email was updated!")
+          (User.update_email email nick)
+      in
+      render_unsafe res request
+    | `Ok
+        [ ("confirm-new-password", confirm_password)
+        ; ("new-password", password)
+        ] ->
+      let res =
+        if password = confirm_password then
+          Result.fold ~error:Fun.id
+            ~ok:(fun _ -> "Your password was updated!")
+            (User.update_password password nick)
+        else "Password confimation does not match"
+      in
+      render_unsafe res request
+    | `Ok _ | `Many_tokens _ | `Missing_token _ | `Invalid_token _
+    | `Wrong_session _ | `Expired _ | `Wrong_content_type ->
+      Dream.empty `Bad_Request )
+
 let profile_get request =
   match Dream.session "nick" request with
-  | None -> render_unsafe "Not logged in" request
+  | None -> not_logged_in "/profile" request
   | Some nick ->
     let res =
       match User.get_user nick with
@@ -195,7 +251,7 @@ let profile_get request =
 
 let profile_post request =
   match Dream.session "nick" request with
-  | None -> render_unsafe "Not logged in" request
+  | None -> not_logged_in "/profile" request
   | Some nick -> (
     match%lwt Dream.form request with
     | `Ok [ ("bio", bio) ] -> (
@@ -222,9 +278,8 @@ let profile_post request =
             ~headers:[ ("Location", "/profile") ]
             "Your avatar was updated!"
         | Error e -> render_unsafe e request )
-      | `Ok _ -> Dream.empty `Bad_Request
-      | `Expired _ | `Many_tokens _ | `Missing_token _ | `Invalid_token _
-      | `Wrong_session _ | `Wrong_content_type ->
+      | `Ok _ | `Expired _ | `Many_tokens _ | `Missing_token _
+      | `Invalid_token _ | `Wrong_session _ | `Wrong_content_type ->
         Dream.empty `Bad_Request ) )
 
 let avatar_image request =
@@ -261,7 +316,7 @@ let babillard_get request = render_unsafe (Babillard_page.f request) request
 
 let babillard_post request =
   match Dream.session "nick" request with
-  | None -> render_unsafe "Not logged in" request
+  | None -> not_logged_in "/" request
   | Some nick -> (
     match%lwt Dream.multipart request with
     | `Ok
@@ -320,8 +375,9 @@ let thread_get request =
 
 (*form to reply to a thread *)
 let reply_post request =
+  let parent_id = Dream.param request "thread_id" in
   match Dream.session "nick" request with
-  | None -> render_unsafe "Not logged in" request
+  | None -> not_logged_in (Format.sprintf "/thread/%s" parent_id) request
   | Some nick -> (
     match%lwt Dream.multipart request with
     | `Ok
@@ -330,7 +386,6 @@ let reply_post request =
         ; ("reply-comment", [ (_, comment) ])
         ; ("tags", [ (_, tags) ])
         ] -> (
-      let parent_id = Dream.param request "thread_id" in
       let res =
         match file with
         | [] -> Babillard.make_reply ~comment ~tags ~parent_id nick
@@ -371,6 +426,8 @@ let routes =
   [ get_ "/" babillard_get
   ; post "/" babillard_post
   ; get_ "/about" about
+  ; get_ "/account" account_get
+  ; post "/account" account_post
   ; get_ "/admin" admin_get
   ; post "/admin" admin_post
   ; get_ "/assets/**" (Dream.static ~loader:asset_loader "")

@@ -135,18 +135,14 @@ let valid_nick nick =
   && String.length nick > 0
   && Dream.html_escape nick = nick
 
+let valid_password password =
+  String.length password < 128 && String.length password > 0
+
+let valid_email email =
+  match Emile.of_string email with Ok _ -> true | Error _ -> false
+
 let register ~email ~nick ~password =
-  let valid_nick = valid_nick nick in
-
-  let valid_email =
-    match Emile.of_string email with Ok _ -> true | Error _ -> false
-  in
-
-  let valid_password =
-    String.length password < 128 && String.length password > 0
-  in
-
-  let valid = valid_nick && valid_email && valid_password in
+  let valid = valid_nick nick && valid_email email && valid_password password in
 
   let password = Bcrypt.hash password in
   let password = Bcrypt.string_of_hash password in
@@ -235,8 +231,26 @@ let banish nick =
   let^ () = Db.exec Q.upload_banished (nick, email) in
   Ok ()
 
+let delete_user nick =
+  let^ () = Db.exec Q.delete_user nick in
+  Ok ()
+
 let update_display_nick display_nick nick =
   if valid_nick display_nick then
     let^ () = Db.exec Q.update_display_nick (display_nick, nick) in
     Ok ()
   else Error "invalid display nick"
+
+let update_email email nick =
+  if valid_email email then
+    let^ () = Db.exec Q.update_email (email, nick) in
+    Ok ()
+  else Error "invalid email"
+
+let update_password password nick =
+  if valid_password password then
+    let password = Bcrypt.hash password in
+    let password = Bcrypt.string_of_hash password in
+    let^ () = Db.exec Q.update_password (password, nick) in
+    Ok ()
+  else Error "invalid password"
