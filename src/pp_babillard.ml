@@ -11,8 +11,8 @@ let pp_post fmt t =
   let { id
       ; parent_id = _parent_id
       ; date
+      ; user_id
       ; nick
-      ; display_nick
       ; comment
       ; image_info
       ; tags
@@ -80,7 +80,7 @@ let pp_post fmt t =
     Format.fprintf fmt
       {|
     <div class="post-info">
-        <span class="display-nick" data-nick="%s">%s</span>
+        <span class="nick" data-user-id="%s">%s</span>
         <span class="date" data-time="%f"></span>
         <div class="dropend post-menu-div">
           <a class="dropdown-toggle post-menu-link" href="#" role="button" id="dropdownMenuLink" data-bs-toggle="dropdown" aria-expanded="false">
@@ -93,7 +93,7 @@ let pp_post fmt t =
         </div>
         %a
     </div>|}
-      nick display_nick date id id id post_links_view ()
+      user_id nick date id id id post_links_view ()
   in
 
   let pp_print_tag fmt tag =
@@ -162,7 +162,7 @@ let catalog_content () =
 
 let pp_report fmt post report request =
   let url = "/admin" in
-  let nick, reason, _date, id = report in
+  let _reporter_id, reporter_nick, reason, _date, id = report in
   let input_post_id fmt id =
     Format.fprintf fmt
       {|<input value="%s" name="post_id" type="hidden"></input>|} id
@@ -200,7 +200,8 @@ let pp_report fmt post report request =
     </div>
 </div><br>
 |}
-    pp_post (Post post) nick reason form "ignore" form "delete" form "banish"
+    pp_post (Post post) reporter_nick reason form "ignore" form "delete" form
+    "banish"
 
 let admin_page_content posts reports request =
   let posts_reports = List.combine posts reports in

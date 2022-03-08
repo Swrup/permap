@@ -5,8 +5,8 @@ let f (user: User.t) request =
   <h2>Display nickname</h2>
   <%s! Dream.form_tag ~action:"/profile" request %>
     <div class="mb-3">
-      <label for="display-nick" class="form-label">Change display name</label>
-      <input name="display-nick" type="text" class="form-control" id="display-nick" value="<%s! user.display_nick %>"></input>
+      <label for="nick" class="form-label">Change display name</label>
+      <input name="nick" type="text" class="form-control" id="nick" value="<%s! user.nick %>"></input>
     </div>
     <button type="submit" class="btn btn-primary">Save</button>
   </form>

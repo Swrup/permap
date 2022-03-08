@@ -11,8 +11,8 @@ type post =
   { id : string
   ; parent_id : string
   ; date : float
+  ; user_id : string
   ; nick : string
-  ; display_nick : string
   ; comment : string
   ; image_info : (string * string) option
   ; tags : string list
@@ -27,9 +27,9 @@ type t =
 module Q = struct
   let create_post_user_table =
     Caqti_request.exec Caqti_type.unit
-      "CREATE TABLE IF NOT EXISTS post_user (post_id TEXT, nick TEXT, PRIMARY \
-       KEY(post_id), FOREIGN KEY(nick) REFERENCES user(nick) ON DELETE \
-       CASCADE);"
+      "CREATE TABLE IF NOT EXISTS post_user (post_id TEXT, user_id TEXT, \
+       PRIMARY KEY(post_id), FOREIGN KEY(user_id) REFERENCES user(user_id) ON \
+       DELETE CASCADE);"
 
   (* one row for each thread, with thread's data *)
   let create_thread_info_table =
@@ -86,10 +86,10 @@ module Q = struct
 
   let create_report_table =
     Caqti_request.exec Caqti_type.unit
-      "CREATE TABLE IF NOT EXISTS report (nick TEXT, reason TEXT, date \
+      "CREATE TABLE IF NOT EXISTS report (user_id TEXT, reason TEXT, date \
        FLOAT,post_id TEXT, FOREIGN KEY(post_id) REFERENCES post_user(post_id) \
-       ON DELETE CASCADE, FOREIGN KEY(nick) REFERENCES user(nick) ON DELETE \
-       CASCADE);"
+       ON DELETE CASCADE, FOREIGN KEY(user_id) REFERENCES user(user_id) ON \
+       DELETE CASCADE);"
 
   let upload_report =
     Caqti_request.exec
@@ -149,9 +149,9 @@ module Q = struct
       Caqti_type.(tup2 string float)
       "INSERT INTO post_date VALUES (?,?);"
 
-  let get_post_nick =
+  let get_post_user_id =
     Caqti_request.find Caqti_type.string Caqti_type.string
-      "SELECT nick FROM post_user WHERE post_id=?;"
+      "SELECT user_id FROM post_user WHERE post_id=?;"
 
   let get_post_comment =
     Caqti_request.find Caqti_type.string Caqti_type.string
@@ -310,11 +310,12 @@ let upload_post ?image_content post =
     | Op (thread_data, reply) -> (Some thread_data, reply)
     | Post reply -> (None, reply)
   in
-  let { id; parent_id; date; nick; comment; image_info; tags; citations; _ } =
+  let { id; parent_id; date; user_id; comment; image_info; tags; citations; _ }
+      =
     reply
   in
 
-  let^ () = Db.exec Q.upload_post_id (id, nick) in
+  let^ () = Db.exec Q.upload_post_id (id, user_id) in
   let^ () = Db.exec Q.upload_post_comment (id, comment) in
   let^ () = Db.exec Q.upload_post_date (id, date) in
   let^ () = Db.exec Q.upload_thread_post (parent_id, id) in
@@ -342,7 +343,7 @@ let upload_post ?image_content post =
     let^ () = Db.exec Q.upload_thread_info (id, subject, lat, lng) in
     Ok id
 
-let build_reply ~comment ?image ~tags ?parent_id nick =
+let build_reply ~comment ?image ~tags ?parent_id user_id =
   let comment = Dream.html_escape comment in
   let tags = Dream.html_escape tags in
   let id = Uuidm.to_string (Uuidm.v4_gen random_state ()) in
@@ -370,13 +371,13 @@ let build_reply ~comment ?image ~tags ?parent_id nick =
         in
         let date = Unix.time () in
         let comment, citations = parse_comment comment in
-        let* display_nick = User.get_display_nick nick in
+        let* nick = User.get_nick user_id in
         let reply =
           { id
           ; parent_id
           ; date
+          ; user_id
           ; nick
-          ; display_nick
           ; comment
           ; image_info
           ; tags = tag_list
@@ -386,7 +387,7 @@ let build_reply ~comment ?image ~tags ?parent_id nick =
         in
         Ok reply
 
-let build_op ~comment ?image ~tags ~subject ~lat ~lng nick =
+let build_op ~comment ?image ~tags ~subject ~lat ~lng user_id =
   let subject = Dream.html_escape subject in
   (* TODO latlng validation? *)
   let is_valid_latlng = true in
@@ -396,21 +397,21 @@ let build_op ~comment ?image ~tags ~subject ~lat ~lng nick =
     let thread_data = { subject; lng; lat } in
     let* reply =
       match image with
-      | Some image -> build_reply ~comment ~image ~tags nick
-      | None -> build_reply ~comment ~tags nick
+      | Some image -> build_reply ~comment ~image ~tags user_id
+      | None -> build_reply ~comment ~tags user_id
     in
     let op = Op (thread_data, reply) in
     Ok op
 
-let make_reply ~comment ?image ~tags ~parent_id nick =
-  let* reply = build_reply ~comment ?image ~tags ~parent_id nick in
+let make_reply ~comment ?image ~tags ~parent_id user_id =
+  let* reply = build_reply ~comment ?image ~tags ~parent_id user_id in
   let post = Post reply in
   match image with
   | None -> upload_post post
   | Some (_image_info, image_content) -> upload_post ~image_content post
 
-let make_op ~comment ?image ~tags ~subject ~lat ~lng nick =
-  let* op = build_op ~comment ?image ~tags ~subject ~lat ~lng nick in
+let make_op ~comment ?image ~tags ~subject ~lat ~lng user_id =
+  let* op = build_op ~comment ?image ~tags ~subject ~lat ~lng user_id in
   match image with
   | None -> upload_post op
   | Some (_image_info, image_content) -> upload_post ~image_content op
@@ -426,8 +427,8 @@ let post_exist id = Result.is_ok (Db.find Q.get_is_post id)
 
 let get_post id =
   let^ parent_id = Db.find Q.get_post_thread id in
-  let^ nick = Db.find Q.get_post_nick id in
-  let* display_nick = User.get_display_nick nick in
+  let^ user_id = Db.find Q.get_post_user_id id in
+  let* nick = User.get_nick user_id in
   let^ comment = Db.find Q.get_post_comment id in
   let^ date = Db.find Q.get_post_date id in
   let^ image_info = Db.find_opt Q.get_post_image_info id in
@@ -439,8 +440,8 @@ let get_post id =
     { id
     ; parent_id
     ; date
+    ; user_id
     ; nick
-    ; display_nick
     ; comment
     ; image_info
     ; tags
@@ -466,20 +467,20 @@ let get_posts ids = unwrap_list get_post ids
 
 let get_ops ids = unwrap_list get_op ids
 
-let try_delete_post ~nick id =
+let try_delete_post ~user_id id =
   let* post = get_post id in
-  if post.nick = nick || User.is_admin nick then
+  if post.user_id = user_id || User.is_admin user_id then
     let^ () = Db.exec Q.delete_post id in
     Ok ()
   else Error "You can only delete your posts"
 
-let report ~nick ~reason id =
+let report ~user_id ~reason id =
   if not (post_exist id) then Error "This post exists not"
   else if String.length reason > 2000 then Error "Your reason is too long.."
   else
     let reason = Dream.html_escape reason in
     let date = Unix.time () in
-    let^ () = Db.exec Q.upload_report (nick, reason, date, id) in
+    let^ () = Db.exec Q.upload_report (user_id, reason, date, id) in
     Ok ()
 
 let ignore_report id =
@@ -489,6 +490,14 @@ let ignore_report id =
 let get_reports () =
   let^ reports = Db.collect_list Q.get_reports () in
   let* posts =
-    unwrap_list (fun (_nick, _reason, _date, id) -> get_post id) reports
+    unwrap_list (fun (_reporter_id, _reason, _date, id) -> get_post id) reports
+  in
+  (* add reporter_nick to reports so we can display it *)
+  let* reports =
+    unwrap_list
+      (fun (reporter_id, reason, date, id) ->
+        let* reporter_nick = User.get_nick reporter_id in
+        Ok (reporter_id, reporter_nick, reason, date, id) )
+      reports
   in
   Ok (posts, reports)

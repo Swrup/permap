@@ -56,8 +56,8 @@ let login_get request = render_unsafe (Login.f request) request
 
 let login_post request =
   match%lwt Dream.form request with
-  | `Ok [ ("nick", nick); ("password", password) ] -> (
-    match User.login ~nick ~password request with
+  | `Ok [ ("login", login); ("password", password) ] -> (
+    match User.login ~login ~password request with
     | Error e -> render_unsafe e request
     | Ok () ->
       let url =
@@ -73,14 +73,14 @@ let login_post request =
     Dream.empty `Bad_Request
 
 let admin_get request =
-  match Dream.session "nick" request with
+  match Dream.session "user_id" request with
   | None ->
     let redirect_url =
       Format.sprintf "/login?redirect=%s" (Dream.to_percent_encoded "/admin")
     in
     Dream.respond ~status:`See_Other ~headers:[ ("Location", redirect_url) ] ""
-  | Some nick ->
-    if not (User.is_admin nick) then Dream.respond ~status:`Forbidden ""
+  | Some user_id ->
+    if not (User.is_admin user_id) then Dream.respond ~status:`Forbidden ""
     else
       let res =
         match Babillard.get_reports () with
@@ -91,10 +91,10 @@ let admin_get request =
       render_unsafe res request
 
 let admin_post request =
-  match Dream.session "nick" request with
+  match Dream.session "user_id" request with
   | None -> not_logged_in "/admin" request
-  | Some nick -> (
-    if not (User.is_admin nick) then Dream.respond ~status:`Forbidden ""
+  | Some user_id -> (
+    if not (User.is_admin user_id) then Dream.respond ~status:`Forbidden ""
     else
       match%lwt Dream.form request with
       | `Ok [ ("action", action); ("post_id", id) ] -> (
@@ -102,10 +102,10 @@ let admin_post request =
           match Babillard.get_post id with
           | Error _e as e -> e
           | Ok post -> (
-            let evil_nick = post.nick in
+            let evil_user_id = post.user_id in
             match action with
-            | "delete" -> Babillard.try_delete_post ~nick id
-            | "banish" -> User.banish evil_nick
+            | "delete" -> Babillard.try_delete_post ~user_id:evil_user_id id
+            | "banish" -> User.banish evil_user_id
             | "ignore" -> Babillard.ignore_report id
             | a -> Error (Format.sprintf "invalid action: `%s`" a) )
         in
@@ -134,13 +134,13 @@ let delete_get request =
 
 let delete_post request =
   let post_id = Dream.param request "post_id" in
-  match Dream.session "nick" request with
+  match Dream.session "user_id" request with
   | None -> not_logged_in (Format.sprintf "/delete/%s" post_id) request
-  | Some nick -> (
+  | Some user_id -> (
     (* match on Dream.form needed for hidden csrf field *)
     match%lwt Dream.form request with
     | `Ok [] -> (
-      match Babillard.try_delete_post ~nick post_id with
+      match Babillard.try_delete_post ~user_id post_id with
       | Error e -> render_unsafe e request
       | Ok () ->
         Dream.respond ~status:`See_Other
@@ -159,13 +159,13 @@ let report_get request =
 
 let report_post request =
   let post_id = Dream.param request "post_id" in
-  match Dream.session "nick" request with
+  match Dream.session "user_id" request with
   | None -> not_logged_in (Format.sprintf "/report/%s" post_id) request
-  | Some nick -> (
+  | Some user_id -> (
     match%lwt Dream.form request with
     | `Ok [ ("reason", reason) ] ->
       let res =
-        match Babillard.report ~nick ~reason post_id with
+        match Babillard.report ~user_id ~reason post_id with
         | Error e -> e
         | Ok () -> "The post was reported!"
       in
@@ -179,11 +179,12 @@ let user request =
 
 let user_profile request =
   let nick = Dream.param request "user" in
-  if User.exist nick then
+  match User.get_user_id_from_nick nick with
+  | Error _e -> Dream.respond ~status:`Not_Found "User does not exists"
+  | Ok user_id ->
     render_unsafe
-      (Result.fold ~ok:Fun.id ~error:Fun.id (User.public_profile nick))
+      (Result.fold ~ok:Fun.id ~error:Fun.id (User.public_profile user_id))
       request
-  else Dream.respond ~status:`Not_Found "User does not exists"
 
 let logout request =
   let _ = Dream.invalidate_session request in
@@ -191,11 +192,11 @@ let logout request =
   render_unsafe content request
 
 let account_get request =
-  match Dream.session "nick" request with
+  match Dream.session "user_id" request with
   | None -> not_logged_in "/account" request
-  | Some nick ->
+  | Some user_id ->
     let res =
-      match User.get_user nick with
+      match User.get_user user_id with
       | Error e -> e
       | Ok user -> User_account.f user request
     in
@@ -203,23 +204,23 @@ let account_get request =
 
 (*TODO ask for password *)
 let account_post request =
-  match Dream.session "nick" request with
+  match Dream.session "user_id" request with
   | None -> not_logged_in "/account" request
-  | Some nick -> (
+  | Some user_id -> (
     match%lwt Dream.form request with
     | `Ok [ ("delete", _) ] ->
       (*TODO ask for confirmation *)
       let res =
         Result.fold ~error:Fun.id
           ~ok:(fun _ -> "Your account was deleted")
-          (User.delete_user nick)
+          (User.delete_user user_id)
       in
       render_unsafe res request
     | `Ok [ ("email", email) ] ->
       let res =
         Result.fold ~error:Fun.id
           ~ok:(fun _ -> "Your email was updated!")
-          (User.update_email email nick)
+          (User.update_email email user_id)
       in
       render_unsafe res request
     | `Ok
@@ -230,7 +231,7 @@ let account_post request =
         if password = confirm_password then
           Result.fold ~error:Fun.id
             ~ok:(fun _ -> "Your password was updated!")
-            (User.update_password password nick)
+            (User.update_password password user_id)
         else "Password confimation does not match"
       in
       render_unsafe res request
@@ -239,30 +240,30 @@ let account_post request =
       Dream.empty `Bad_Request )
 
 let profile_get request =
-  match Dream.session "nick" request with
+  match Dream.session "user_id" request with
   | None -> not_logged_in "/profile" request
-  | Some nick ->
+  | Some user_id ->
     let res =
-      match User.get_user nick with
+      match User.get_user user_id with
       | Error e -> e
       | Ok user -> User_profile.f user request
     in
     render_unsafe res request
 
 let profile_post request =
-  match Dream.session "nick" request with
+  match Dream.session "user_id" request with
   | None -> not_logged_in "/profile" request
-  | Some nick -> (
+  | Some user_id -> (
     match%lwt Dream.form request with
     | `Ok [ ("bio", bio) ] -> (
-      match User.update_bio bio nick with
+      match User.update_bio bio user_id with
       | Ok () ->
         Dream.respond ~status:`See_Other
           ~headers:[ ("Location", "/profile") ]
           "Your bio was updated!"
       | Error e -> render_unsafe e request )
-    | `Ok [ ("display-nick", display_nick) ] -> (
-      match User.update_display_nick display_nick nick with
+    | `Ok [ ("nick", nick) ] -> (
+      match User.update_nick nick user_id with
       | Ok () ->
         Dream.respond ~status:`See_Other
           ~headers:[ ("Location", "/profile") ]
@@ -272,7 +273,7 @@ let profile_post request =
       match int_of_string_opt count with
       | None -> render_unsafe "Error: invalid count" request
       | Some count -> (
-        match User.update_metadata count label content nick with
+        match User.update_metadata count label content user_id with
         | Ok () ->
           Dream.respond ~status:`See_Other
             ~headers:[ ("Location", "/profile") ]
@@ -282,7 +283,7 @@ let profile_post request =
     | `Wrong_session _ | `Expired _ | `Wrong_content_type -> (
       match%lwt Dream.multipart request with
       | `Ok [ ("file", file) ] -> (
-        match User.upload_avatar file nick with
+        match User.upload_avatar file user_id with
         | Ok () ->
           Dream.respond ~status:`See_Other
             ~headers:[ ("Location", "/profile") ]
@@ -294,8 +295,10 @@ let profile_post request =
 
 let avatar_image request =
   let nick = Dream.param request "user" in
-  if User.exist nick then
-    let avatar = User.get_avatar nick in
+  match User.get_user_id_from_nick nick with
+  | Error _e -> Dream.respond ~status:`Not_Found "User does not exists"
+  | Ok user_id -> (
+    let avatar = User.get_avatar user_id in
     match avatar with
     | Ok (Some avatar) ->
       Dream.respond ~headers:[ ("Content-Type", "image") ] avatar
@@ -303,8 +306,7 @@ let avatar_image request =
       match Content.read "/assets/img/default_avatar.png" with
       | None -> failwith "can't find default avatar"
       | Some avatar ->
-        Dream.respond ~headers:[ ("Content-Type", "image") ] avatar )
-  else Dream.respond ~status:`Not_Found "User does not exists"
+        Dream.respond ~headers:[ ("Content-Type", "image") ] avatar ) )
 
 let post_image request =
   let post_id = Dream.param request "post_id" in
@@ -325,9 +327,9 @@ let markers request =
 let babillard_get request = render_unsafe (Babillard_page.f request) request
 
 let babillard_post request =
-  match Dream.session "nick" request with
+  match Dream.session "user_id" request with
   | None -> not_logged_in "/" request
-  | Some nick -> (
+  | Some user_id -> (
     match%lwt Dream.multipart request with
     | `Ok
         [ ("alt", [ (_, alt) ])
@@ -344,11 +346,11 @@ let babillard_post request =
       | Some lat, Some lng -> (
         let res =
           match file with
-          | [] -> Babillard.make_op ~comment ~lat ~lng ~subject ~tags nick
+          | [] -> Babillard.make_op ~comment ~lat ~lng ~subject ~tags user_id
           | _ :: _ :: _ -> Error "More than one image"
           | [ (image_name, image_content) ] ->
             let image = ((image_name, alt), image_content) in
-            Babillard.make_op ~comment ~image ~lat ~lng ~subject ~tags nick
+            Babillard.make_op ~comment ~image ~lat ~lng ~subject ~tags user_id
         in
         match res with
         | Ok thread_id ->
@@ -386,9 +388,9 @@ let thread_get request =
 (*form to reply to a thread *)
 let reply_post request =
   let parent_id = Dream.param request "thread_id" in
-  match Dream.session "nick" request with
+  match Dream.session "user_id" request with
   | None -> not_logged_in (Format.sprintf "/thread/%s" parent_id) request
-  | Some nick -> (
+  | Some user_id -> (
     match%lwt Dream.multipart request with
     | `Ok
         [ ("alt", [ (_, alt) ])
@@ -398,10 +400,10 @@ let reply_post request =
         ] -> (
       let res =
         match file with
-        | [] -> Babillard.make_reply ~comment ~tags ~parent_id nick
+        | [] -> Babillard.make_reply ~comment ~tags ~parent_id user_id
         | [ (image_name, image_content) ] ->
           let image = ((image_name, alt), image_content) in
-          Babillard.make_reply ~comment ~image ~tags ~parent_id nick
+          Babillard.make_reply ~comment ~image ~tags ~parent_id user_id
         | _ :: _ :: _ -> Error "More than one image"
       in
       match res with

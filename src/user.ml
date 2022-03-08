@@ -2,8 +2,8 @@ include Bindings
 open Db
 
 type t =
-  { nick : string
-  ; display_nick : string
+  { user_id : string
+  ; nick : string
   ; password : string
   ; email : string
   ; bio : string
@@ -14,8 +14,8 @@ type t =
 module Q = struct
   let create_user_table =
     Caqti_request.exec Caqti_type.unit
-      "CREATE TABLE IF NOT EXISTS user (nick TEXT, display_nick TEXT, password \
-       TEXT, email TEXT, bio TEXT, avatar BLOB, PRIMARY KEY(nick));"
+      "CREATE TABLE IF NOT EXISTS user (user_id TEXT, nick TEXT, password \
+       TEXT, email TEXT, bio TEXT, avatar BLOB, PRIMARY KEY(user_id));"
 
   let create_banished_table =
     Caqti_request.exec Caqti_type.unit
@@ -23,14 +23,14 @@ module Q = struct
 
   let create_metadata_table =
     Caqti_request.exec Caqti_type.unit
-      "CREATE TABLE IF NOT EXISTS metadata (nick TEXT, count INT, label TEXT, \
-       content TEXT, FOREIGN KEY(nick) REFERENCES user(nick) ON DELETE \
-       CASCADE);"
+      "CREATE TABLE IF NOT EXISTS metadata (user_id TEXT, count INT, label \
+       TEXT, content TEXT, FOREIGN KEY(user_id) REFERENCES user(user_id) ON \
+       DELETE CASCADE);"
 
   let get_metadata =
     Caqti_request.collect Caqti_type.string
       Caqti_type.(tup3 int string string)
-      "SELECT count, label, content FROM metadata WHERE nick=?;"
+      "SELECT count, label, content FROM metadata WHERE user_id=?;"
 
   let upload_metadata =
     Caqti_request.exec
@@ -40,14 +40,23 @@ module Q = struct
   let delete_metadata =
     Caqti_request.exec
       Caqti_type.(tup2 string int)
-      "DELETE FROM metadata WHERE nick=? AND count=?;"
+      "DELETE FROM metadata WHERE user_id=? AND count=?;"
+
+  let get_user_id_from_nick =
+    Caqti_request.find Caqti_type.string Caqti_type.string
+      "SELECT user_id FROM user WHERE nick=?;"
+
+  let get_user_id_from_login =
+    Caqti_request.find
+      Caqti_type.(tup2 string string)
+      Caqti_type.string "SELECT user_id FROM user WHERE nick=? OR email=?;"
 
   let get_password =
-    Caqti_request.find_opt Caqti_type.string Caqti_type.string
-      "SELECT password FROM user WHERE nick=?;"
+    Caqti_request.find Caqti_type.string Caqti_type.string
+      "SELECT password FROM user WHERE user_id=?;"
 
   let is_already_user =
-    Caqti_request.find_opt
+    Caqti_request.find
       Caqti_type.(tup2 string string)
       Caqti_type.int
       "SELECT EXISTS(SELECT 1 FROM user WHERE nick=? OR email=?);"
@@ -67,51 +76,51 @@ module Q = struct
       (* there is no "tup6" *)
       Caqti_type.(
         tup4 string string string Caqti_type.(tup3 string string string))
-      "SELECT * FROM user WHERE nick=?;"
+      "SELECT * FROM user WHERE user_id=?;"
 
   let update_bio =
     Caqti_request.exec
       Caqti_type.(tup2 string string)
-      "UPDATE user SET bio=? WHERE nick=?;"
+      "UPDATE user SET bio=? WHERE user_id=?;"
 
-  let update_display_nick =
+  let update_nick =
     Caqti_request.exec
       Caqti_type.(tup2 string string)
-      "UPDATE user SET display_nick=? WHERE nick=?;"
+      "UPDATE user SET nick=? WHERE user_id=?;"
 
   let update_email =
     Caqti_request.exec
       Caqti_type.(tup2 string string)
-      "UPDATE user SET email=? WHERE nick=?;"
+      "UPDATE user SET email=? WHERE user_id=?;"
 
   let update_password =
     Caqti_request.exec
       Caqti_type.(tup2 string string)
-      "UPDATE user SET password=? WHERE nick=?;"
+      "UPDATE user SET password=? WHERE user_id=?;"
 
-  let get_display_nick =
+  let get_nick =
     Caqti_request.find Caqti_type.string Caqti_type.string
-      "SELECT display_nick FROM user WHERE nick=?;"
+      "SELECT nick FROM user WHERE user_id=?;"
 
   let get_bio =
     Caqti_request.find Caqti_type.string Caqti_type.string
-      "SELECT bio FROM user WHERE nick=?;"
+      "SELECT bio FROM user WHERE user_id=?;"
 
   let get_email =
     Caqti_request.find Caqti_type.string Caqti_type.string
-      "SELECT email FROM user WHERE nick=?;"
+      "SELECT email FROM user WHERE user_id=?;"
 
   let get_avatar =
     Caqti_request.find Caqti_type.string Caqti_type.string
-      "SELECT avatar FROM user WHERE nick=?;"
+      "SELECT avatar FROM user WHERE user_id=?;"
 
   let upload_avatar =
     Caqti_request.exec
       Caqti_type.(tup2 string string)
-      "UPDATE user SET avatar=? WHERE nick=?;"
+      "UPDATE user SET avatar=? WHERE user_id=?;"
 
   let delete_user =
-    Caqti_request.exec Caqti_type.string "DELETE FROM user WHERE nick=?;"
+    Caqti_request.exec Caqti_type.string "DELETE FROM user WHERE user_id=?;"
 
   let upload_banished =
     Caqti_request.exec
@@ -119,9 +128,10 @@ module Q = struct
       "INSERT INTO banished VALUES (?,?);"
 
   let get_banished =
-    Caqti_request.find Caqti_type.string
+    Caqti_request.find
       Caqti_type.(tup2 string string)
-      "SELECT * FROM banished WHERE nick=?;"
+      Caqti_type.(tup2 string string)
+      "SELECT * FROM banished WHERE nick=? OR email=?;"
 end
 
 let () =
@@ -133,32 +143,44 @@ let () =
       (Array.map (fun query -> Db.exec query ()) tables)
   then Dream.error (fun log -> log "can't create user tables")
 
-let exist nick = Result.is_ok (Db.find Q.get_user nick)
+let exist_nick nick = Result.is_ok (Db.find Q.get_user nick)
 
 let get_metadata nick =
   let^ metadata = Db.collect_list Q.get_metadata nick in
   let metadata = List.sort (fun (a, _, _) (b, _, _) -> compare a b) metadata in
   Ok metadata
 
-let get_user nick =
-  let^? nick, display_nick, password, (email, bio, avatar) =
-    Db.find_opt Q.get_user nick
+let get_user_id_from_nick nick =
+  let^ user_id = Db.find Q.get_user_id_from_nick nick in
+  Ok user_id
+
+let get_user user_id =
+  let^? user_id, nick, password, (email, bio, avatar) =
+    Db.find_opt Q.get_user user_id
   in
-  let* metadata = get_metadata nick in
-  Ok { nick; display_nick; password; email; bio; avatar; metadata }
+  let* metadata = get_metadata user_id in
+  Ok { user_id; nick; password; email; bio; avatar; metadata }
 
-let is_banished nick = Result.is_ok (Db.find Q.get_banished nick)
+let is_banished login = Result.is_ok (Db.find Q.get_banished (login, login))
 
-let login ~nick ~password request =
-  if exist nick then
-    let^? good_password = Db.find_opt Q.get_password nick in
-    if Bcrypt.verify password (Bcrypt.hash_of_string good_password) then
-      let _unit_lwt = Dream.invalidate_session request in
-      let _unit_lwt = Dream.put_session "nick" nick request in
-      Ok ()
-    else Error "wrong password"
-  else if is_banished nick then Error "YOU ARE BANISHED"
-  else Error "wrong user name"
+let get_nick user_id =
+  let^ nick = Db.find Q.get_nick user_id in
+  Ok nick
+
+let login ~login ~password request =
+  if is_banished login then Error "YOU ARE BANISHED"
+  else
+    match Db.find Q.get_user_id_from_login (login, login) with
+    | Error _e -> Error "wrong login"
+    | Ok user_id ->
+      let^ good_password = Db.find Q.get_password user_id in
+      if Bcrypt.verify password (Bcrypt.hash_of_string good_password) then
+        let _unit_lwt = Dream.invalidate_session request in
+        let _unit_lwt = Dream.put_session "user_id" user_id request in
+        let* nick = get_nick user_id in
+        let _unit_lwt = Dream.put_session "nick" nick request in
+        Ok ()
+      else Error "wrong password"
 
 let valid_nick nick =
   String.length nick < 64
@@ -179,9 +201,12 @@ let register ~email ~nick ~password =
 
   if not valid then Error "Something is wrong"
   else
-    let^? nb = Db.find_opt Q.is_already_user (nick, email) in
+    let^ nb = Db.find Q.is_already_user (nick, email) in
     if nb = 0 then
-      let^ () = Db.exec Q.upload_user (nick, nick, password, (email, "", "")) in
+      let user_id = Uuidm.to_string (Uuidm.v4_gen random_state ()) in
+      let^ () =
+        Db.exec Q.upload_user (user_id, nick, password, (email, "", ""))
+      in
       Ok ()
     else Error "nick or email already exists"
 
@@ -199,83 +224,83 @@ let profile request =
   | None -> "not logged in"
   | Some nick -> Format.sprintf "Hello %s !" nick
 
-let update_bio bio nick =
+let update_bio bio user_id =
   let bio = Dream.html_escape bio in
   let valid = String.length bio < 10000 in
   if not valid then Error "Not biologic"
   else
-    let^ () = Db.exec Q.update_bio (bio, nick) in
+    let^ () = Db.exec Q.update_bio (bio, user_id) in
     Ok ()
 
-let get_bio nick =
-  let^? bio = Db.find_opt Q.get_bio nick in
+let get_bio user_id =
+  let^ bio = Db.find Q.get_bio user_id in
   Ok bio
 
-let get_email nick =
-  let^? email = Db.find_opt Q.get_email nick in
+let get_email user_id =
+  let^ email = Db.find Q.get_email user_id in
   Ok email
 
-let get_display_nick nick =
-  let^? display_nick = Db.find_opt Q.get_display_nick nick in
-  Ok display_nick
-
-let get_avatar nick =
-  let^? avatar = Db.find_opt Q.get_avatar nick in
+let get_avatar user_id =
+  let^ avatar = Db.find Q.get_avatar user_id in
   if String.length avatar = 0 then Ok None else Ok (Some avatar)
 
-let upload_avatar files nick =
+let upload_avatar files user_id =
   match files with
   | [] -> Error "No file provided"
   | [ (_, content) ] ->
     if not (is_valid_image content) then Error "Invalid image"
     else
-      let^ () = Db.exec Q.upload_avatar (content, nick) in
+      let^ () = Db.exec Q.upload_avatar (content, user_id) in
       Ok ()
   | _files -> Error "More than one file provided"
 
-let is_admin nick = List.mem nick App.admins
+let is_admin user_id =
+  match get_nick user_id with
+  | Error _e -> false
+  | Ok nick -> List.mem nick App.admins
 
-let banish nick =
-  let* email = get_email nick in
-  let^ () = Db.exec Q.delete_user nick in
+let banish user_id =
+  let* nick = get_nick user_id in
+  let* email = get_email user_id in
+  let^ () = Db.exec Q.delete_user user_id in
   let^ () = Db.exec Q.upload_banished (nick, email) in
   Ok ()
 
-let delete_user nick =
-  let^ () = Db.exec Q.delete_user nick in
+let delete_user user_id =
+  let^ () = Db.exec Q.delete_user user_id in
   Ok ()
 
-let update_display_nick display_nick nick =
-  if valid_nick display_nick then
-    let^ () = Db.exec Q.update_display_nick (display_nick, nick) in
+let update_nick nick user_id =
+  if valid_nick nick then
+    let^ () = Db.exec Q.update_nick (nick, user_id) in
     Ok ()
   else Error "invalid display nick"
 
-let update_email email nick =
+let update_email email user_id =
   if valid_email email then
-    let^ () = Db.exec Q.update_email (email, nick) in
+    let^ () = Db.exec Q.update_email (email, user_id) in
     Ok ()
   else Error "invalid email"
 
-let update_password password nick =
+let update_password password user_id =
   if valid_password password then
     let password = Bcrypt.hash password in
     let password = Bcrypt.string_of_hash password in
-    let^ () = Db.exec Q.update_password (password, nick) in
+    let^ () = Db.exec Q.update_password (password, user_id) in
     Ok ()
   else Error "invalid password"
 
-let update_metadata count label content nick =
+let update_metadata count label content user_id =
   let label = Dream.html_escape label in
   let content = Dream.html_escape content in
   if String.length label > 200 || String.length content > 400 then
     Error "label or content is too long"
   else
     (* rewrite all user's metadata *)
-    let* metadata = get_metadata nick in
+    let* metadata = get_metadata user_id in
     let^ _unit_list =
       unwrap_list
-        (fun (count, _l, _c) -> Db.exec Q.delete_metadata (nick, count))
+        (fun (count, _l, _c) -> Db.exec Q.delete_metadata (user_id, count))
         metadata
     in
     let l = List.filter (fun (i, _, _) -> i <> count) metadata in
@@ -288,7 +313,7 @@ let update_metadata count label content nick =
     let^ _unit_list =
       unwrap_list
         (fun (i, label, content) ->
-          Db.exec Q.upload_metadata (nick, i, label, content) )
+          Db.exec Q.upload_metadata (user_id, i, label, content) )
         l
     in
     Ok ()
@@ -346,8 +371,8 @@ let pp_metadata_table_form fmt metadata request =
          pp_metadata_form fmt metadata request ) )
     metadata new_metadata_field ()
 
-let public_profile nick =
-  let* user = get_user nick in
+let public_profile user_id =
+  let* user = get_user user_id in
   let user_info =
     Format.asprintf
       {|
@@ -365,6 +390,6 @@ let public_profile nick =
       </div>
     </div>
 |}
-      user.display_nick user.bio user.nick pp_metadata_table user.metadata
+      user.nick user.bio user.nick pp_metadata_table user.metadata
   in
   Ok user_info
