@@ -272,9 +272,11 @@ let delete_user user_id =
 
 let update_nick nick user_id =
   if valid_nick nick then
-    let^ () = Db.exec Q.update_nick (nick, user_id) in
-    Ok ()
-  else Error "invalid display nick"
+    if not (exist_nick nick) then
+      let^ () = Db.exec Q.update_nick (nick, user_id) in
+      Ok ()
+    else Error "nick already taken"
+  else Error "invalid nick"
 
 let update_email email user_id =
   if valid_email email then
