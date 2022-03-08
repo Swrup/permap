@@ -46,8 +46,16 @@ let register_get request = render_unsafe (Register.f request) request
 
 let register_post request =
   match%lwt Dream.form request with
-  | `Ok [ ("email", email); ("nick", nick); ("password", password) ] ->
-    render_unsafe (Register.f ~nick ~email ~password request) request
+  | `Ok [ ("email", email); ("nick", nick); ("password", password) ] -> (
+    match User.register ~email ~nick ~password with
+    | Error e -> render_unsafe e request
+    | Ok () ->
+      let res =
+        Result.fold ~error:Fun.id
+          ~ok:(fun _ -> "User created ! Welcome !")
+          (User.login ~login:nick ~password request)
+      in
+      render_unsafe res request )
   | `Ok _ | `Many_tokens _ | `Missing_token _ | `Invalid_token _
   | `Wrong_session _ | `Expired _ | `Wrong_content_type ->
     Dream.empty `Bad_Request
