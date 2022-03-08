@@ -1,7 +1,8 @@
 let f (user: User.t) request =
-  <h1><%s  Format.sprintf "Hello %s !" user.nick %></h1>
+% let metadata_table = Format.asprintf "%a" (fun fmt metadata -> User.pp_metadata_table_form fmt metadata request) user.metadata in
+  <h1>Edit your profile</h1>
   <p>Check your <a href="/user/<%s user.nick %>">public profile rendering</a>.</p>
-  <h2>Edit profile</h2>
+  <h2>Display nickname</h2>
   <%s! Dream.form_tag ~action:"/profile" request %>
     <div class="mb-3">
       <label for="display-nick" class="form-label">Change display name</label>
@@ -11,15 +12,22 @@ let f (user: User.t) request =
   </form>
   <br />
   <br />
+  <h2>Profile metadata</h2>
+  <p>Add items displayed as a table on your profile.</p>
+<%s! metadata_table %>
+  <br />
+  <br />
+  <h2>Bio</h2>
   <%s! Dream.form_tag ~action:"/profile" request %>
     <div class="mb-3">
-      <label for="bio" class="form-label">Bio</label>
-      <textarea name="bio" type="text" class="form-control" id="bio" aria-describedby="bioHelp"><%s! user.bio %></textarea>
-      <div id="bioHelp" class="form-text">Who are you?</div>
+      <label for="bio" class="form-label">Change your bio</label>
+      <textarea name="bio" type="text" class="form-control" id="bio" aria-describedby="bio-help"><%s! user.bio %></textarea>
+      <div id="bio-help" class="form-text">Who are you?</div>
     </div>
     <button type="submit" class="btn btn-primary">Save</button>
   </form>
   <br />
+  <h2>Avatar</h2>
   <img src="/user/<%s user.nick %>/avatar" class="img-thumbnail" alt="Your avatar picture" />
   <br />
   <br />

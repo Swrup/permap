@@ -8,6 +8,7 @@ type t =
   ; email : string
   ; bio : string
   ; avatar : string
+  ; metadata : (int * string * string) list
   }
 
 module Q = struct
@@ -15,6 +16,31 @@ module Q = struct
     Caqti_request.exec Caqti_type.unit
       "CREATE TABLE IF NOT EXISTS user (nick TEXT, display_nick TEXT, password \
        TEXT, email TEXT, bio TEXT, avatar BLOB, PRIMARY KEY(nick));"
+
+  let create_banished_table =
+    Caqti_request.exec Caqti_type.unit
+      "CREATE TABLE IF NOT EXISTS banished (nick TEXT, email TEXT);"
+
+  let create_metadata_table =
+    Caqti_request.exec Caqti_type.unit
+      "CREATE TABLE IF NOT EXISTS metadata (nick TEXT, count INT, label TEXT, \
+       content TEXT, FOREIGN KEY(nick) REFERENCES user(nick) ON DELETE \
+       CASCADE);"
+
+  let get_metadata =
+    Caqti_request.collect Caqti_type.string
+      Caqti_type.(tup3 int string string)
+      "SELECT count, label, content FROM metadata WHERE nick=?;"
+
+  let upload_metadata =
+    Caqti_request.exec
+      Caqti_type.(tup4 string int string string)
+      "INSERT INTO metadata VALUES (?, ?, ?, ?);"
+
+  let delete_metadata =
+    Caqti_request.exec
+      Caqti_type.(tup2 string int)
+      "DELETE FROM metadata WHERE nick=? AND count=?;"
 
   let get_password =
     Caqti_request.find_opt Caqti_type.string Caqti_type.string
@@ -84,10 +110,6 @@ module Q = struct
       Caqti_type.(tup2 string string)
       "UPDATE user SET avatar=? WHERE nick=?;"
 
-  let create_banished_table =
-    Caqti_request.exec Caqti_type.unit
-      "CREATE TABLE IF NOT EXISTS banished (nick TEXT, email TEXT);"
-
   let delete_user =
     Caqti_request.exec Caqti_type.string "DELETE FROM user WHERE nick=?;"
 
@@ -103,7 +125,9 @@ module Q = struct
 end
 
 let () =
-  let tables = [| Q.create_user_table; Q.create_banished_table |] in
+  let tables =
+    [| Q.create_user_table; Q.create_banished_table; Q.create_metadata_table |]
+  in
   if
     Array.exists Result.is_error
       (Array.map (fun query -> Db.exec query ()) tables)
@@ -111,11 +135,17 @@ let () =
 
 let exist nick = Result.is_ok (Db.find Q.get_user nick)
 
+let get_metadata nick =
+  let^ metadata = Db.collect_list Q.get_metadata nick in
+  let metadata = List.sort (fun (a, _, _) (b, _, _) -> compare a b) metadata in
+  Ok metadata
+
 let get_user nick =
   let^? nick, display_nick, password, (email, bio, avatar) =
     Db.find_opt Q.get_user nick
   in
-  Ok { nick; display_nick; password; email; bio; avatar }
+  let* metadata = get_metadata nick in
+  Ok { nick; display_nick; password; email; bio; avatar; metadata }
 
 let is_banished nick = Result.is_ok (Db.find Q.get_banished nick)
 
@@ -163,26 +193,6 @@ let list () =
           | s -> Format.fprintf fmt {|<li><a href="/user/%s">%s</a></li>|} s s )
        )
        users )
-
-let public_profile nick =
-  let* user = get_user nick in
-  let user_info =
-    Format.sprintf
-      {|
-    <h1>%s</h1>
-    <br />
-    <div class="row">
-      <div class="col-md-6">
-        <blockquote>%s</blockquote>
-      </div>
-      <div class="col-md-6">
-        <img src="/user/%s/avatar" class="img-thumbnail" alt="Your avatar picture">
-      </div>
-    </div>
-|}
-      user.nick user.bio user.nick
-  in
-  Ok user_info
 
 let profile request =
   match Dream.session "nick" request with
@@ -254,3 +264,107 @@ let update_password password nick =
     let^ () = Db.exec Q.update_password (password, nick) in
     Ok ()
   else Error "invalid password"
+
+let update_metadata count label content nick =
+  let label = Dream.html_escape label in
+  let content = Dream.html_escape content in
+  if String.length label > 200 || String.length content > 400 then
+    Error "label or content is too long"
+  else
+    (* rewrite all user's metadata *)
+    let* metadata = get_metadata nick in
+    let^ _unit_list =
+      unwrap_list
+        (fun (count, _l, _c) -> Db.exec Q.delete_metadata (nick, count))
+        metadata
+    in
+    let l = List.filter (fun (i, _, _) -> i <> count) metadata in
+    let l =
+      if not (label = "" && content = "") then (count, label, content) :: l
+      else l
+    in
+    let l = List.sort (fun (a, _, _) (b, _, _) -> compare a b) l in
+    let l = List.mapi (fun i (_, label, content) -> (i, label, content)) l in
+    let^ _unit_list =
+      unwrap_list
+        (fun (i, label, content) ->
+          Db.exec Q.upload_metadata (nick, i, label, content) )
+        l
+    in
+    Ok ()
+
+let pp_metadata fmt metadata =
+  let _count, label, content = metadata in
+  Format.fprintf fmt
+    {|
+<div class="row">
+    <div class="col metadata-label">%s</div>
+    <div class="col metadata-content">%s</div>
+</div>
+    |}
+    label content
+
+let pp_metadata_form fmt ?is_last metadata request =
+  let count, label, content = metadata in
+  let form_tag = Dream.form_tag ~action:"/profile" request in
+  let button_text = if Option.is_some is_last then "Add" else "Save" in
+  Format.fprintf fmt
+    {|
+<div class="row">
+    %s
+        <input name="label" class="metadata-label" value="%s"/>
+        <input name="content" class="metadata-content" value="%s"/>
+    <button name="count" value="%d" type="submit" class="btn btn-primary">%s</button>
+    </form>
+</div>
+    |}
+    form_tag label content count button_text
+
+let pp_metadata_table fmt metadata =
+  Format.fprintf fmt
+    {|
+<div class="metadata-table">
+    %a
+</div>
+|}
+    (Format.pp_print_list ~pp_sep:Format.pp_print_space pp_metadata)
+    metadata
+
+let pp_metadata_table_form fmt metadata request =
+  let length = List.length metadata in
+  let new_metadata_field fmt () =
+    pp_metadata_form fmt ~is_last:() (length, "", "") request
+  in
+  Format.fprintf fmt
+    {|
+<div class="metadata-form-table">
+    %a
+    %a
+</div>
+|}
+    (Format.pp_print_list ~pp_sep:Format.pp_print_space (fun fmt metadata ->
+         pp_metadata_form fmt metadata request ) )
+    metadata new_metadata_field ()
+
+let public_profile nick =
+  let* user = get_user nick in
+  let user_info =
+    Format.asprintf
+      {|
+    <h1>%s</h1>
+    <br />
+    <div class="row">
+      <div class="col-md-6">
+        <blockquote>%s</blockquote>
+      </div>
+      <div class="col-md-6">
+        <img src="/user/%s/avatar" class="img-thumbnail" alt="Your avatar picture">
+      </div>
+      <div class="col-md-6">
+        %a
+      </div>
+    </div>
+|}
+      user.display_nick user.bio user.nick pp_metadata_table user.metadata
+  in
+  Ok user_info

@@ -12,3 +12,11 @@ let ( let^ ) o f =
   | Ok x -> f x
 
 let ( let* ) o f = Result.fold ~ok:f ~error:Result.error o
+
+let unwrap_list f ids =
+  let l = List.map f ids in
+  let res = List.find_opt Result.is_error l in
+  match res with
+  | None -> Ok (List.map Result.get_ok l)
+  | Some (Ok _) -> assert false
+  | Some (Error _e as error) -> error

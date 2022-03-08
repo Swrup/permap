@@ -268,6 +268,14 @@ let profile_post request =
           ~headers:[ ("Location", "/profile") ]
           "Your display nick was updated!"
       | Error e -> render_unsafe e request )
+    | `Ok [ ("content", content); ("count", count); ("label", label) ] -> (
+      let count = int_of_string count in
+      match User.update_metadata count label content nick with
+      | Ok () ->
+        Dream.respond ~status:`See_Other
+          ~headers:[ ("Location", "/profile") ]
+          "Your display nick was updated!"
+      | Error e -> render_unsafe e request )
     | `Ok _ | `Many_tokens _ | `Missing_token _ | `Invalid_token _
     | `Wrong_session _ | `Expired _ | `Wrong_content_type -> (
       match%lwt Dream.multipart request with

@@ -24,14 +24,6 @@ type t =
   | Op of thread_data * post
   | Post of post
 
-let unwrap_list f ids =
-  let l = List.map f ids in
-  let res = List.find_opt Result.is_error l in
-  match res with
-  | None -> Ok (List.map Result.get_ok l)
-  | Some (Ok _) -> assert false
-  | Some (Error _e as error) -> error
-
 module Q = struct
   let create_post_user_table =
     Caqti_request.exec Caqti_type.unit
