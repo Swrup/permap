@@ -87,4 +87,4 @@ let get_dirs name =
 
 let admins = get_dirs "admin"
 
-let categories = get_dirs "category"
+let categories = List.sort_uniq compare (get_dirs "category")

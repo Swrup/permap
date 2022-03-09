@@ -350,7 +350,16 @@ let babillard_post request =
         ; ("subject", [ (_, subject) ])
         ; ("tags", [ (_, tags) ])
         ; ("thread-comment", [ (_, comment) ])
-        ] -> (
+        ]
+    | `Ok
+        (("alt", [ (_, alt) ])
+        :: ("file", file)
+           :: ("lat-input", [ (_, lat) ])
+              :: ("lng-input", [ (_, lng) ])
+                 :: ("subject", [ (_, subject) ])
+                    :: ("tags", [ (_, tags) ])
+                       :: ("thread-comment", [ (_, comment) ])
+                          :: ([] as categories) ) -> (
       let categories =
         List.map (fun (_name, category) -> category) categories
       in
