@@ -78,9 +78,13 @@ let log =
 
 let () = Dream.log "log: %b" log
 
-let admins =
-  let dirs = Scfg.Query.get_dirs "admin" config in
+let get_dirs name =
+  let dirs = Scfg.Query.get_dirs name config in
   List.map
     (fun dir ->
       Result.fold ~error:failwith ~ok:Fun.id (Scfg.Query.get_param 0 dir) )
     dirs
+
+let admins = get_dirs "admin"
+
+let categories = get_dirs "category"

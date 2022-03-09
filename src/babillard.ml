@@ -343,9 +343,8 @@ let upload_post ?image_content post =
     let^ () = Db.exec Q.upload_thread_info (id, subject, lat, lng) in
     Ok id
 
-let build_reply ~comment ?image ~tags ?parent_id user_id =
+let build_reply ~comment ?image ~tag_list ?parent_id user_id =
   let comment = Dream.html_escape comment in
-  let tags = Dream.html_escape tags in
   let id = Uuidm.to_string (Uuidm.v4_gen random_state ()) in
   (* parent_id is None if this reply is supposed to be a new thread *)
   let parent_id = Option.value parent_id ~default:id in
@@ -355,7 +354,9 @@ let build_reply ~comment ?image ~tags ?parent_id user_id =
     match parse_image image with
     | Error e -> Error e
     | Ok image ->
-      if String.length tags > 1000 then Error "invalid tags"
+      if List.length tag_list > 30 then Error "too much tags"
+      else if List.exists (fun tag -> String.length tag > 100) tag_list then
+        Error "tag too long"
       else
         let image_info =
           match image with
@@ -367,7 +368,7 @@ let build_reply ~comment ?image ~tags ?parent_id user_id =
           @@ List.sort_uniq String.compare
           @@ List.filter (( <> ) "")
           @@ List.map String.trim
-          @@ Str.split (Str.regexp ",+") tags
+          @@ List.map Dream.html_escape tag_list
         in
         let date = Unix.time () in
         let comment, citations = parse_comment comment in
@@ -387,31 +388,39 @@ let build_reply ~comment ?image ~tags ?parent_id user_id =
         in
         Ok reply
 
-let build_op ~comment ?image ~tags ~subject ~lat ~lng user_id =
+let build_op ~comment ?image ~tag_list ~categories ~subject ~lat ~lng user_id =
   let subject = Dream.html_escape subject in
-  (* TODO latlng validation? *)
-  let is_valid_latlng = true in
-  if not is_valid_latlng then Error "Invalid coordinate"
-  else if String.length subject > 600 then Error "Invalid subject"
+  if List.exists (fun s -> not (List.mem s App.categories)) categories then
+    Error "Invalid category"
   else
-    let thread_data = { subject; lng; lat } in
-    let* reply =
-      match image with
-      | Some image -> build_reply ~comment ~image ~tags user_id
-      | None -> build_reply ~comment ~tags user_id
-    in
-    let op = Op (thread_data, reply) in
-    Ok op
+    let tag_list = categories @ tag_list in
+    (* TODO latlng validation? *)
+    let is_valid_latlng = true in
+    if not is_valid_latlng then Error "Invalid coordinate"
+    else if String.length subject > 600 then Error "Invalid subject"
+    else
+      let thread_data = { subject; lng; lat } in
+      let* reply =
+        match image with
+        | Some image -> build_reply ~comment ~image ~tag_list user_id
+        | None -> build_reply ~comment ~tag_list user_id
+      in
+      let op = Op (thread_data, reply) in
+      Ok op
 
 let make_reply ~comment ?image ~tags ~parent_id user_id =
-  let* reply = build_reply ~comment ?image ~tags ~parent_id user_id in
+  let tag_list = Str.split (Str.regexp ",+") tags in
+  let* reply = build_reply ~comment ?image ~tag_list ~parent_id user_id in
   let post = Post reply in
   match image with
   | None -> upload_post post
   | Some (_image_info, image_content) -> upload_post ~image_content post
 
-let make_op ~comment ?image ~tags ~subject ~lat ~lng user_id =
-  let* op = build_op ~comment ?image ~tags ~subject ~lat ~lng user_id in
+let make_op ~comment ?image ~tags ~categories ~subject ~lat ~lng user_id =
+  let tag_list = Str.split (Str.regexp ",+") tags in
+  let* op =
+    build_op ~comment ?image ~tag_list ~categories ~subject ~lat ~lng user_id
+  in
   match image with
   | None -> upload_post op
   | Some (_image_info, image_content) -> upload_post ~image_content op

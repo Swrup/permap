@@ -96,11 +96,21 @@ let pp_post fmt t =
       user_id nick date id id id post_links_view ()
   in
 
+  let pp_print_category fmt category =
+    Format.fprintf fmt {|<span class="category tag">%s</span>|} category
+  in
   let pp_print_tag fmt tag =
     Format.fprintf fmt {|<span class="tag">%s</span>|} tag
   in
   let pp_print_tags fmt tags =
-    Format.fprintf fmt {|<div class="tags">%a</div>|}
+    let categories, tags =
+      List.partition (fun tag -> List.mem tag App.categories) tags
+    in
+    let categories = List.sort String.compare categories in
+    let tags = List.sort String.compare tags in
+    Format.fprintf fmt {|<div class="tags">%a%a</div>|}
+      (Format.pp_print_list ~pp_sep:Format.pp_print_space pp_print_category)
+      categories
       (Format.pp_print_list ~pp_sep:Format.pp_print_space pp_print_tag)
       tags
   in
@@ -273,6 +283,25 @@ let get_markers () =
       ops
   in
   Ok markers
+
+let pp_checkboxes () =
+  let pp_checkbox fmt category =
+    Format.fprintf fmt
+      {|
+<div class="form-check col">
+    <input name="category" id="category-%s" type="checkbox" class"form-check-input" value="%s">
+    <label class="form-check-label" for="category-%s">%s</label>
+</div>
+|}
+      category category category category
+  in
+  Format.asprintf
+    {| 
+<div class="row">
+   %a
+</div>|}
+    (Format.pp_print_list ~pp_sep:Format.pp_print_space pp_checkbox)
+    App.categories
 
 (* RFC-3339 date-time *)
 let pp_date fmt date =

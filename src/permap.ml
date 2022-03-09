@@ -1,3 +1,5 @@
+include Bindings
+
 let get_title content =
   let open Soup in
   try
@@ -341,6 +343,7 @@ let babillard_post request =
     match%lwt Dream.multipart request with
     | `Ok
         [ ("alt", [ (_, alt) ])
+        ; ("category", categories)
         ; ("file", file)
         ; ("lat-input", [ (_, lat) ])
         ; ("lng-input", [ (_, lng) ])
@@ -348,17 +351,23 @@ let babillard_post request =
         ; ("tags", [ (_, tags) ])
         ; ("thread-comment", [ (_, comment) ])
         ] -> (
+      let categories =
+        List.map (fun (_name, category) -> category) categories
+      in
       match (Float.of_string_opt lat, Float.of_string_opt lng) with
       | None, _ -> render_unsafe "Invalide coordinate" request
       | _, None -> render_unsafe "Invalide coordinate" request
       | Some lat, Some lng -> (
         let res =
           match file with
-          | [] -> Babillard.make_op ~comment ~lat ~lng ~subject ~tags user_id
+          | [] ->
+            Babillard.make_op ~comment ~lat ~lng ~subject ~tags ~categories
+              user_id
           | _ :: _ :: _ -> Error "More than one image"
           | [ (image_name, image_content) ] ->
             let image = ((image_name, alt), image_content) in
-            Babillard.make_op ~comment ~image ~lat ~lng ~subject ~tags user_id
+            Babillard.make_op ~comment ~image ~lat ~lng ~subject ~tags
+              ~categories user_id
         in
         match res with
         | Ok thread_id ->

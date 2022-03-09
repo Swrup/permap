@@ -129,6 +129,14 @@ a.preview-link {
   padding: 2px;
 }
 
+.category {
+  background-color: #FFB300;
+  border-radius: 4px;
+  padding: 2px;
+  font-weight: bold;
+  font-size: 20px;
+}
+
 .off {
   display: none;
 }
