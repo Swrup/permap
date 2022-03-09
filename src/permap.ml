@@ -220,14 +220,14 @@ let account_post request =
       (*TODO ask for confirmation *)
       let res =
         Result.fold ~error:Fun.id
-          ~ok:(fun _ -> "Your account was deleted")
+          ~ok:(fun () -> "Your account was deleted")
           (User.delete_user user_id)
       in
       render_unsafe res request
     | `Ok [ ("email", email) ] ->
       let res =
         Result.fold ~error:Fun.id
-          ~ok:(fun _ -> "Your email was updated!")
+          ~ok:(fun () -> "Your email was updated!")
           (User.update_email email user_id)
       in
       render_unsafe res request

@@ -8,7 +8,7 @@ type t =
   ; email : string
   ; bio : string
   ; avatar : string
-  ; metadata : (int * string * string) list
+  ; metadata : (string * string) list
   }
 
 module Q = struct
@@ -23,24 +23,21 @@ module Q = struct
 
   let create_metadata_table =
     Caqti_request.exec Caqti_type.unit
-      "CREATE TABLE IF NOT EXISTS metadata (user_id TEXT, count INT, label \
-       TEXT, content TEXT, FOREIGN KEY(user_id) REFERENCES user(user_id) ON \
-       DELETE CASCADE);"
+      "CREATE TABLE IF NOT EXISTS user_metadata (user_id TEXT, metadata TEXT, \
+       FOREIGN KEY(user_id) REFERENCES user(user_id) ON DELETE CASCADE);"
 
   let get_metadata =
-    Caqti_request.collect Caqti_type.string
-      Caqti_type.(tup3 int string string)
-      "SELECT count, label, content FROM metadata WHERE user_id=?;"
+    Caqti_request.find Caqti_type.string Caqti_type.string
+      "SELECT metadata FROM user_metadata WHERE user_id=?;"
 
   let upload_metadata =
     Caqti_request.exec
-      Caqti_type.(tup4 string int string string)
-      "INSERT INTO metadata VALUES (?, ?, ?, ?);"
+      Caqti_type.(tup2 string string)
+      "INSERT INTO user_metadata VALUES (?, ?);"
 
   let delete_metadata =
-    Caqti_request.exec
-      Caqti_type.(tup2 string int)
-      "DELETE FROM metadata WHERE user_id=? AND count=?;"
+    Caqti_request.exec Caqti_type.string
+      "DELETE FROM user_metadata WHERE user_id=?;"
 
   let get_user_id_from_nick =
     Caqti_request.find Caqti_type.string Caqti_type.string
@@ -146,8 +143,8 @@ let () =
 let exist_nick nick = Result.is_ok (Db.find Q.get_user nick)
 
 let get_metadata nick =
-  let^ metadata = Db.collect_list Q.get_metadata nick in
-  let metadata = List.sort (fun (a, _, _) (b, _, _) -> compare a b) metadata in
+  let^ metadata = Db.find Q.get_metadata nick in
+  let metadata : (string * string) list = Marshal.from_string metadata 0 in
   Ok metadata
 
 let get_user_id_from_nick nick =
@@ -191,7 +188,7 @@ let valid_password password =
   String.length password < 128 && String.length password > 0
 
 let valid_email email =
-  match Emile.of_string email with Ok _ -> true | Error _ -> false
+  match Emile.of_string email with Ok _mail -> true | Error _e -> false
 
 let register ~email ~nick ~password =
   let valid = valid_nick nick && valid_email email && valid_password password in
@@ -207,6 +204,7 @@ let register ~email ~nick ~password =
       let^ () =
         Db.exec Q.upload_user (user_id, nick, password, (email, "", ""))
       in
+      let^ () = Db.exec Q.upload_metadata (user_id, Marshal.to_string [] []) in
       Ok ()
     else Error "nick or email already exists"
 
@@ -298,30 +296,24 @@ let update_metadata count label content user_id =
   if String.length label > 200 || String.length content > 400 then
     Error "label or content is too long"
   else
-    (* rewrite all user's metadata *)
     let* metadata = get_metadata user_id in
-    let^ _unit_list =
-      unwrap_list
-        (fun (count, _l, _c) -> Db.exec Q.delete_metadata (user_id, count))
-        metadata
+    let metadata =
+      if List.length metadata > 0 && List.length metadata > count then
+        List.mapi
+          (fun i (l, c) -> if i = count then (label, content) else (l, c))
+          metadata
+      else metadata @ [ (label, content) ]
     in
-    let l = List.filter (fun (i, _, _) -> i <> count) metadata in
-    let l =
-      if not (label = "" && content = "") then (count, label, content) :: l
-      else l
+    let metadata =
+      List.filter (fun (l, c) -> not (l = "" && c = "")) metadata
     in
-    let l = List.sort (fun (a, _, _) (b, _, _) -> compare a b) l in
-    let l = List.mapi (fun i (_, label, content) -> (i, label, content)) l in
-    let^ _unit_list =
-      unwrap_list
-        (fun (i, label, content) ->
-          Db.exec Q.upload_metadata (user_id, i, label, content) )
-        l
-    in
+    let s = Marshal.to_string metadata [] in
+    let^ () = Db.exec Q.delete_metadata user_id in
+    let^ () = Db.exec Q.upload_metadata (user_id, s) in
     Ok ()
 
-let pp_metadata fmt metadata =
-  let _count, label, content = metadata in
+let pp_metadata fmt pair =
+  let label, content = pair in
   Format.fprintf fmt
     {|
 <div class="row">
@@ -331,10 +323,10 @@ let pp_metadata fmt metadata =
     |}
     label content
 
-let pp_metadata_form fmt ?is_last metadata request =
-  let count, label, content = metadata in
+let pp_metadata_form fmt is_last count pair request =
+  let label, content = pair in
   let form_tag = Dream.form_tag ~action:"/profile" request in
-  let button_text = if Option.is_some is_last then "Add" else "Save" in
+  let button_text = if is_last then "Add" else "Save" in
   Format.fprintf fmt
     {|
 <div class="row">
@@ -358,10 +350,7 @@ let pp_metadata_table fmt metadata =
     metadata
 
 let pp_metadata_table_form fmt metadata request =
-  let length = List.length metadata in
-  let new_metadata_field fmt () =
-    pp_metadata_form fmt ~is_last:() (length, "", "") request
-  in
+  let l = List.mapi (fun i e -> (i, e)) metadata in
   Format.fprintf fmt
     {|
 <div class="metadata-form-table">
@@ -369,9 +358,13 @@ let pp_metadata_table_form fmt metadata request =
     %a
 </div>
 |}
-    (Format.pp_print_list ~pp_sep:Format.pp_print_space (fun fmt metadata ->
-         pp_metadata_form fmt metadata request ) )
-    metadata new_metadata_field ()
+    (Format.pp_print_list ~pp_sep:Format.pp_print_space
+       (fun fmt (count, metadata) ->
+         pp_metadata_form fmt false count metadata request ) )
+    l
+    (fun fmt (count, metadata) ->
+      pp_metadata_form fmt true count metadata request )
+    (List.length l, ("", ""))
 
 let public_profile user_id =
   let* user = get_user user_id in
