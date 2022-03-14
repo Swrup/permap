@@ -284,7 +284,7 @@ let get_markers () =
   in
   Ok markers
 
-let pp_checkboxes () =
+let pp_checkboxes fmt () =
   let pp_checkbox fmt category =
     Format.fprintf fmt
       {|
@@ -295,7 +295,7 @@ let pp_checkboxes () =
 |}
       category category category category
   in
-  Format.asprintf
+  Format.fprintf fmt
     {| 
 <div class="row">
    %a

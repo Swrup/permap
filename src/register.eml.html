@@ -2,13 +2,11 @@ let f request =
 <%s! Dream.form_tag ~action:"/register" request %>
   <div class="mb-3">
     <label for="nick" class="form-label">Nick</label>
-    <input name="nick" type="text" class="form-control" id="nick" aria-describedby="nick-help">
-    <div id="nick-help" class="form-text">Choose a nickname</div>
+    <input name="nick" type="text" class="form-control" id="nick">
   </div>
   <div class="mb-3">
     <label for="email" class="form-label">Email address</label>
-    <input name="email" type="email" class="form-control" id="email" aria-describedby="email-help">
-    <div id="email-help" class="form-text">We'll never share your email with anyone else.</div>
+    <input name="email" type="email" class="form-control" id="email">
   </div>
   <div class="mb-3">
     <label for="password" class="form-label">Password</label>

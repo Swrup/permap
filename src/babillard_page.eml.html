@@ -39,7 +39,7 @@ let f request =
           <textarea name="thread-comment" type="text" class="form-control" id="thread-comment" aria-labelledby="thread-comment-label"></textarea>
           <br />
           <label for="tags" id="tags-label" class="form-label">Tags</label>
-          <%s! Pp_babillard.pp_checkboxes () %>
+          <%s! Format.asprintf "%a" Pp_babillard.pp_checkboxes () %>
           <input name="tags" type="text" class="form-control" id="tags" aria-labelledby="tags-label"></input>
           <br />
           <label for="file" id="file-label" class="form-label">Picture:</label>

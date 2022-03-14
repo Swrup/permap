@@ -43,10 +43,9 @@ module Q = struct
     Caqti_request.find Caqti_type.string Caqti_type.string
       "SELECT user_id FROM user WHERE nick=?;"
 
-  let get_user_id_from_login =
-    Caqti_request.find
-      Caqti_type.(tup2 string string)
-      Caqti_type.string "SELECT user_id FROM user WHERE nick=? OR email=?;"
+  let get_user_id_from_email =
+    Caqti_request.find Caqti_type.string Caqti_type.string
+      "SELECT user_id FROM user WHERE email=?;"
 
   let get_password =
     Caqti_request.find Caqti_type.string Caqti_type.string
@@ -167,17 +166,24 @@ let get_nick user_id =
 let login ~login ~password request =
   if is_banished login then Error "YOU ARE BANISHED"
   else
-    match Db.find Q.get_user_id_from_login (login, login) with
-    | Error _e -> Error "wrong login"
-    | Ok user_id ->
-      let^ good_password = Db.find Q.get_password user_id in
-      if Bcrypt.verify password (Bcrypt.hash_of_string good_password) then
-        let _unit_lwt = Dream.invalidate_session request in
-        let _unit_lwt = Dream.put_session "user_id" user_id request in
-        let* nick = get_nick user_id in
-        let _unit_lwt = Dream.put_session "nick" nick request in
-        Ok ()
-      else Error "wrong password"
+    let* user_id =
+      match Db.find_opt Q.get_user_id_from_nick login with
+      | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+      | Ok None -> (
+        match Db.find_opt Q.get_user_id_from_email login with
+        | Error e -> Error (Format.sprintf "db error: %s" (Caqti_error.show e))
+        | Ok None -> Error "wrong login"
+        | Ok (Some user_id) -> Ok user_id )
+      | Ok (Some user_id) -> Ok user_id
+    in
+    let^ good_password = Db.find Q.get_password user_id in
+    if Bcrypt.verify password (Bcrypt.hash_of_string good_password) then
+      let _unit_lwt = Dream.invalidate_session request in
+      let _unit_lwt = Dream.put_session "user_id" user_id request in
+      let* nick = get_nick user_id in
+      let _unit_lwt = Dream.put_session "nick" nick request in
+      Ok ()
+    else Error "wrong password"
 
 let valid_nick nick =
   String.length nick < 64
@@ -187,8 +193,7 @@ let valid_nick nick =
 let valid_password password =
   String.length password < 128 && String.length password > 0
 
-let valid_email email =
-  match Emile.of_string email with Ok _mail -> true | Error _e -> false
+let valid_email email = Result.is_ok @@ Emile.of_string email
 
 let register ~email ~nick ~password =
   let valid = valid_nick nick && valid_email email && valid_password password in
@@ -297,20 +302,24 @@ let update_metadata count label content user_id =
     Error "label or content is too long"
   else
     let* metadata = get_metadata user_id in
-    let metadata =
-      if List.length metadata > 0 && List.length metadata > count then
-        List.mapi
-          (fun i (l, c) -> if i = count then (label, content) else (l, c))
-          metadata
-      else metadata @ [ (label, content) ]
-    in
-    let metadata =
-      List.filter (fun (l, c) -> not (l = "" && c = "")) metadata
-    in
-    let s = Marshal.to_string metadata [] in
-    let^ () = Db.exec Q.delete_metadata user_id in
-    let^ () = Db.exec Q.upload_metadata (user_id, s) in
-    Ok ()
+    let length = List.length metadata in
+    if count < 0 || count > length then Error "invalid count"
+    else
+      let n = max (count + 1) @@ length in
+      let metadata = Array.of_list metadata in
+      let metadata =
+        List.init n (fun i ->
+            if i = count then (label, content) else metadata.(i) )
+      in
+      let metadata =
+        List.filter (fun (l, c) -> not (l = "" && c = "")) metadata
+      in
+      if List.length metadata >= 42 then Error "to many metadata"
+      else
+        let s = Marshal.to_string metadata [] in
+        let^ () = Db.exec Q.delete_metadata user_id in
+        let^ () = Db.exec Q.upload_metadata (user_id, s) in
+        Ok ()
 
 let pp_metadata fmt pair =
   let label, content = pair in

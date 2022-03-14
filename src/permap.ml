@@ -58,8 +58,9 @@ let register_post request =
           (User.login ~login:nick ~password request)
       in
       render_unsafe res request )
-  | `Ok _ | `Many_tokens _ | `Missing_token _ | `Invalid_token _
-  | `Wrong_session _ | `Expired _ | `Wrong_content_type ->
+  | `Ok _ -> Dream.respond ~status:`Bad_Request "invalid form"
+  | `Many_tokens _ | `Missing_token _ | `Invalid_token _ | `Wrong_session _
+  | `Expired _ | `Wrong_content_type ->
     Dream.empty `Bad_Request
 
 let login_get request = render_unsafe (Login.f request) request
@@ -78,8 +79,9 @@ let login_post request =
       Dream.respond ~status:`See_Other
         ~headers:[ ("Location", url) ]
         "Logged in: Happy geo-posting!" )
-  | `Ok _ | `Many_tokens _ | `Missing_token _ | `Invalid_token _
-  | `Wrong_session _ | `Expired _ | `Wrong_content_type ->
+  | `Ok _ -> Dream.respond ~status:`Bad_Request "invalid form"
+  | `Many_tokens _ | `Missing_token _ | `Invalid_token _ | `Wrong_session _
+  | `Expired _ | `Wrong_content_type ->
     Dream.empty `Bad_Request
 
 let admin_get request =
@@ -125,8 +127,9 @@ let admin_post request =
           Dream.respond ~status:`See_Other
             ~headers:[ ("Location", "/admin") ]
             "" )
-      | `Ok _ | `Expired _ | `Many_tokens _ | `Missing_token _
-      | `Invalid_token _ | `Wrong_session _ | `Wrong_content_type ->
+      | `Ok _ -> Dream.respond ~status:`Bad_Request "invalid form"
+      | `Expired _ | `Many_tokens _ | `Missing_token _ | `Invalid_token _
+      | `Wrong_session _ | `Wrong_content_type ->
         Dream.empty `Bad_Request )
 
 let catalog request =
@@ -156,7 +159,8 @@ let delete_post request =
         Dream.respond ~status:`See_Other
           ~headers:[ ("Location", "/") ]
           "Your post was deleted!" )
-    | `Ok _ | `Expired _ | `Many_tokens _ | `Missing_token _ | `Invalid_token _
+    | `Ok _ -> Dream.respond ~status:`Bad_Request "invalid form"
+    | `Expired _ | `Many_tokens _ | `Missing_token _ | `Invalid_token _
     | `Wrong_session _ | `Wrong_content_type ->
       Dream.empty `Bad_Request )
 
@@ -180,7 +184,8 @@ let report_post request =
         | Ok () -> "The post was reported!"
       in
       render_unsafe res request
-    | `Ok _ | `Expired _ | `Many_tokens _ | `Missing_token _ | `Invalid_token _
+    | `Ok _ -> Dream.respond ~status:`Bad_Request "invalid form"
+    | `Expired _ | `Many_tokens _ | `Missing_token _ | `Invalid_token _
     | `Wrong_session _ | `Wrong_content_type ->
       Dream.empty `Bad_Request )
 
@@ -245,8 +250,9 @@ let account_post request =
         else "Password confimation does not match"
       in
       render_unsafe res request
-    | `Ok _ | `Many_tokens _ | `Missing_token _ | `Invalid_token _
-    | `Wrong_session _ | `Expired _ | `Wrong_content_type ->
+    | `Ok _ -> Dream.respond ~status:`Bad_Request "invalid form"
+    | `Many_tokens _ | `Missing_token _ | `Invalid_token _ | `Wrong_session _
+    | `Expired _ | `Wrong_content_type ->
       Dream.empty `Bad_Request )
 
 let profile_get request =
@@ -289,8 +295,9 @@ let profile_post request =
             ~headers:[ ("Location", "/profile") ]
             "Your display nick was updated!"
         | Error e -> render_unsafe e request ) )
-    | `Ok _ | `Many_tokens _ | `Missing_token _ | `Invalid_token _
-    | `Wrong_session _ | `Expired _ | `Wrong_content_type -> (
+    | `Ok _ -> Dream.respond ~status:`Bad_Request "invalid form"
+    | `Many_tokens _ | `Missing_token _ | `Invalid_token _ | `Wrong_session _
+    | `Expired _ | `Wrong_content_type -> (
       match%lwt Dream.multipart request with
       | `Ok [ ("file", file) ] -> (
         match User.upload_avatar file user_id with
@@ -299,8 +306,9 @@ let profile_post request =
             ~headers:[ ("Location", "/profile") ]
             "Your avatar was updated!"
         | Error e -> render_unsafe e request )
-      | `Ok _ | `Expired _ | `Many_tokens _ | `Missing_token _
-      | `Invalid_token _ | `Wrong_session _ | `Wrong_content_type ->
+      | `Ok _ -> Dream.respond ~status:`Bad_Request "invalid form"
+      | `Expired _ | `Many_tokens _ | `Missing_token _ | `Invalid_token _
+      | `Wrong_session _ | `Wrong_content_type ->
         Dream.empty `Bad_Request ) )
 
 let avatar_image request =
@@ -360,9 +368,7 @@ let babillard_post request =
                     :: ("tags", [ (_, tags) ])
                        :: ("thread-comment", [ (_, comment) ])
                           :: ([] as categories) ) -> (
-      let categories =
-        List.map (fun (_name, category) -> category) categories
-      in
+      let categories = List.map snd categories in
       match (Float.of_string_opt lat, Float.of_string_opt lng) with
       | None, _ -> render_unsafe "Invalide coordinate" request
       | _, None -> render_unsafe "Invalide coordinate" request
@@ -385,7 +391,7 @@ let babillard_post request =
             ~headers:[ ("Location", adress) ]
             "Your thread was posted!"
         | Error e -> render_unsafe e request ) )
-    | `Ok _ -> Dream.empty `Bad_Request
+    | `Ok _ -> Dream.respond ~status:`Bad_Request "invalid form"
     | `Expired _ | `Many_tokens _ | `Missing_token _ | `Invalid_token _
     | `Wrong_session _ | `Wrong_content_type ->
       Dream.empty `Bad_Request )
@@ -439,7 +445,7 @@ let reply_post request =
           ~headers:[ ("Location", adress) ]
           "Your reply was posted!"
       | Error e -> render_unsafe e request )
-    | `Ok _ -> Dream.empty `Bad_Request
+    | `Ok _ -> Dream.respond ~status:`Bad_Request "invalid form"
     | `Expired _ | `Many_tokens _ | `Missing_token _ | `Invalid_token _
     | `Wrong_session _ | `Wrong_content_type ->
       Dream.empty `Bad_Request )
