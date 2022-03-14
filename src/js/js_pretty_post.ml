@@ -21,13 +21,24 @@ let image_click post_image event =
   in
   let new_class =
     match of_string current_class with
-    | Some image_size ->
-      to_string (match image_size with Big -> Small | Small -> Big)
+    | Some image_size -> ( match image_size with Big -> Small | Small -> Big )
     | None -> failwith "invalid image class name"
   in
   ignore
   @@ Jv.call post_image "setAttribute"
-       [| Jv.of_string "class"; Jv.of_string new_class |];
+       [| Jv.of_string "class"; Jv.of_string (to_string new_class) |];
+  let id =
+    Jv.to_string
+    @@ Jv.call post_image "getAttribute" [| Jv.of_string "data-id" |]
+  in
+  let src =
+    match new_class with
+    | Small -> Format.sprintf "/img/s/%s" id
+    | Big -> Format.sprintf "/img/%s" id
+  in
+  ignore
+  @@ Jv.call post_image "setAttribute"
+       [| Jv.of_string "src"; Jv.of_string src |];
   (*prevent redirect to /img/:img*)
   ignore @@ Jv.call event "preventDefault" [||];
   ignore @@ Jv.call event "stopPropagation" [||]

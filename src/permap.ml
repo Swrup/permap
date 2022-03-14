@@ -328,10 +328,13 @@ let avatar_image request =
       | Some avatar ->
         Dream.respond ~headers:[ ("Content-Type", "image") ] avatar ) )
 
-let post_image request =
+let get_post_image ~thumbnail request =
   let post_id = Dream.param request "post_id" in
   if Babillard.post_exist post_id then
-    let image = Babillard.get_post_image_content post_id in
+    let image =
+      if thumbnail then Babillard.get_post_image_thumbnail post_id
+      else Babillard.get_post_image_content post_id
+    in
     match image with
     | Ok image -> Dream.respond ~headers:[ ("Content-Type", "image") ] image
     | Error _ -> Dream.empty `Not_Found
@@ -481,12 +484,12 @@ let routes =
   ; get_ "/catalog" catalog
   ; get_ "/delete/:post_id" delete_get
   ; post "/delete/:post_id" delete_post
-  ; get_ "/img/:post_id" post_image
+  ; get_ "/img/:post_id" (get_post_image ~thumbnail:false)
+  ; get_ "/img/s/:post_id" (get_post_image ~thumbnail:true)
   ; get_ "/login" login_get
   ; post "/login" login_post
   ; get_ "/logout" logout
   ; get_ "/markers" markers
-  ; get_ "/post_pic/:post_id" post_image
   ; get_ "/profile" profile_get
   ; post "/profile" profile_post
   ; get_ "/report/:post_id" report_get

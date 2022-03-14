@@ -40,6 +40,7 @@ type image =
   { name : string
   ; alt : string
   ; content : string
+  ; thumbnail : string
   }
 
 type t =
@@ -97,9 +98,13 @@ module Q = struct
 
   let create_image_content_table =
     Caqti_request.exec Caqti_type.unit
-      "CREATE TABLE IF NOT EXISTS image_content (post_id TEXT,image_content \
-       TEXT, FOREIGN KEY(post_id) REFERENCES post_user(post_id) ON DELETE \
-       CASCADE);"
+      "CREATE TABLE IF NOT EXISTS image_content (post_id TEXT, content TEXT, \
+       FOREIGN KEY(post_id) REFERENCES post_user(post_id) ON DELETE CASCADE);"
+
+  let create_image_thumbnail_table =
+    Caqti_request.exec Caqti_type.unit
+      "CREATE TABLE IF NOT EXISTS image_thumbnail (post_id TEXT, content TEXT, \
+       FOREIGN KEY(post_id) REFERENCES post_user(post_id) ON DELETE CASCADE);"
 
   let create_post_tags_table =
     Caqti_request.exec Caqti_type.unit
@@ -151,6 +156,11 @@ module Q = struct
       Caqti_type.(tup2 string string)
       "INSERT INTO image_content VALUES (?,?);"
 
+  let upload_image_thumbnail =
+    Caqti_request.exec
+      Caqti_type.(tup2 string string)
+      "INSERT INTO image_thumbnail VALUES (?,?);"
+
   let upload_post_reply =
     Caqti_request.exec
       Caqti_type.(tup2 string string)
@@ -181,7 +191,11 @@ module Q = struct
 
   let get_post_image_content =
     Caqti_request.find_opt Caqti_type.string Caqti_type.string
-      "SELECT image_content FROM image_content WHERE post_id=?;"
+      "SELECT content FROM image_content WHERE post_id=?;"
+
+  let get_post_image_thumbnail =
+    Caqti_request.find_opt Caqti_type.string Caqti_type.string
+      "SELECT content FROM image_thumbnail WHERE post_id=?;"
 
   let get_post_image_info =
     Caqti_request.find_opt Caqti_type.string
@@ -249,6 +263,7 @@ let () =
      ; Q.create_post_comment_table
      ; Q.create_image_info_table
      ; Q.create_image_content_table
+     ; Q.create_image_thumbnail_table
      ; Q.create_post_tags_table
      ; Q.create_report_table
     |]
@@ -270,6 +285,41 @@ let clean_image image =
   if not (is_valid_image content) then Error "invalid image"
   else if String.length alt > 1000 then Error "Image description too long"
   else Ok (name, alt, content)
+
+let make_thumbnail content =
+  try
+    let filename =
+      Filename.concat "/tmp" (Uuidm.to_string (Uuidm.v4_gen random_state ()))
+    in
+    let thumb_filename = filename ^ "_small" in
+    let oc = open_out filename in
+    let fmt = Format.formatter_of_out_channel oc in
+    Format.fprintf fmt "%s" content;
+    close_out oc;
+    let command =
+      Format.sprintf
+        "convert -define jpeg:size=700x700 %s -auto-orient -thumbnail \
+         '300x300>' -unsharp 0x.5 -format jpg %s"
+        filename thumb_filename
+    in
+    let resize_exit_code = Sys.command command in
+    if resize_exit_code <> 0 then
+      Error
+        (Format.sprintf "thumbnail: resize command failed with exit code: %d"
+           resize_exit_code )
+    else
+      let ic = open_in thumb_filename in
+      let thumbnail = really_input_string ic (in_channel_length ic) in
+      close_in ic;
+
+      let delete = Format.sprintf "rm %s; rm %s" filename thumb_filename in
+      let delete_exit_code = Sys.command delete in
+      if delete_exit_code <> 0 then
+        Error
+          (Format.sprintf "thumbnail: delete command failed with exit code: %d"
+             delete_exit_code )
+      else Ok thumbnail
+  with Sys_error e -> Error e
 
 (*TODO switch to markdown !*)
 (* insert html into the comment, and keep tracks of citations :
@@ -346,6 +396,7 @@ let upload_post ~image post =
       assert (Option.is_some image_info);
       let^ () = Db.exec Q.upload_image_info (id, image.name, image.alt) in
       let^ () = Db.exec Q.upload_image_content (id, image.content) in
+      let^ () = Db.exec Q.upload_image_thumbnail (id, image.thumbnail) in
       Ok ()
   in
   let^ _unit_list =
@@ -417,7 +468,8 @@ let build_op ~comment ~image_info ~tag_list ~categories ~subject ~lat ~lng
 
 let build_image image_input =
   let* name, alt, content = clean_image image_input in
-  let image = { name; alt; content } in
+  let* thumbnail = make_thumbnail content in
+  let image = { name; alt; content; thumbnail } in
   Ok image
 
 let make_post ~comment ?image_input ~tags ~op_or_reply_data user_id =
@@ -447,6 +499,10 @@ let make_post ~comment ?image_input ~tags ~op_or_reply_data user_id =
 
 let get_post_image_content id =
   let^? content = Db.find_opt Q.get_post_image_content id in
+  Ok content
+
+let get_post_image_thumbnail id =
+  let^? content = Db.find_opt Q.get_post_image_thumbnail id in
   Ok content
 
 let thread_exist id = Result.is_ok (Db.find Q.get_is_thread id)

@@ -29,11 +29,11 @@ let pp_post fmt t =
         {|
     <div class="post-image-container">
         <a href="/img/%s">
-        <img class="post-image" src="/img/%s" alt="%s" title="%s" loading="lazy">
+        <img class="post-image" src="/img/s/%s" alt="%s" title="%s" data-id="%s" loading="lazy">
         </a>
     </div> 
 |}
-        id id image_alt image_alt
+        id id image_alt image_alt id
     | None -> Format.fprintf fmt ""
   in
 

@@ -56,12 +56,12 @@ blockquote.blockquote {
 }
 
 .post-image {
-  max-width: 250px;
-  height: auto;
+  max-width: 300px;
+  max-height: 300px;
 }
 
 .post-image-big {
-  max-width: 750px;
+  max-width: 1200px;
   height: auto;
 }
 
