@@ -373,16 +373,15 @@ let babillard_post request =
       | None, _ -> render_unsafe "Invalide coordinate" request
       | _, None -> render_unsafe "Invalide coordinate" request
       | Some lat, Some lng -> (
+        let op_or_reply_data = `Op_data (categories, subject, lat, lng) in
         let res =
           match file with
-          | [] ->
-            Babillard.make_op ~comment ~lat ~lng ~subject ~tags ~categories
-              user_id
+          | [] -> Babillard.make_post ~comment ~tags ~op_or_reply_data user_id
           | _ :: _ :: _ -> Error "More than one image"
           | [ (image_name, image_content) ] ->
-            let image = ((image_name, alt), image_content) in
-            Babillard.make_op ~comment ~image ~lat ~lng ~subject ~tags
-              ~categories user_id
+            let image_input = (image_name, alt, image_content) in
+            Babillard.make_post ~comment ~image_input ~tags ~op_or_reply_data
+              user_id
         in
         match res with
         | Ok thread_id ->
@@ -430,12 +429,14 @@ let reply_post request =
         ; ("reply-comment", [ (_, comment) ])
         ; ("tags", [ (_, tags) ])
         ] -> (
+      let op_or_reply_data = `Reply_data parent_id in
       let res =
         match file with
-        | [] -> Babillard.make_reply ~comment ~tags ~parent_id user_id
+        | [] -> Babillard.make_post ~comment ~tags ~op_or_reply_data user_id
         | [ (image_name, image_content) ] ->
-          let image = ((image_name, alt), image_content) in
-          Babillard.make_reply ~comment ~image ~tags ~parent_id user_id
+          let image_input = (image_name, alt, image_content) in
+          Babillard.make_post ~comment ~image_input ~tags ~op_or_reply_data
+            user_id
         | _ :: _ :: _ -> Error "More than one image"
       in
       match res with

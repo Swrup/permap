@@ -20,6 +20,12 @@ type post =
   ; citations : string list
   }
 
+type image =
+  { name : string
+  ; alt : string
+  ; content : string
+  }
+
 type t =
   | Op of thread_data * post
   | Post of post
@@ -236,20 +242,18 @@ let () =
       (Array.map (fun query -> Db.exec query ()) tables)
   then Dream.error (fun log -> log "can't create babillard's tables")
 
-let parse_image image =
-  match image with
-  | None -> Ok None
-  | Some ((name, alt), content) ->
-    let name =
-      match name with
-      | Some name -> Dream.html_escape name
-      | None ->
-        (* make up random name if no name was given *)
-        Uuidm.to_string (Uuidm.v4_gen random_state ())
-    in
-    if not (is_valid_image content) then Error "invalid image"
-    else if String.length alt > 1000 then Error "Image description too long"
-    else Ok (Some ((name, alt), content))
+let clean_image image =
+  let name, alt, content = image in
+  let name =
+    match name with
+    | Some name -> Dream.html_escape name
+    | None ->
+      (* make up random name if no name was given *)
+      Uuidm.to_string (Uuidm.v4_gen random_state ())
+  in
+  if not (is_valid_image content) then Error "invalid image"
+  else if String.length alt > 1000 then Error "Image description too long"
+  else Ok (name, alt, content)
 
 (*TODO switch to markdown !*)
 (* insert html into the comment, and keep tracks of citations :
@@ -304,7 +308,7 @@ let parse_comment comment =
   let citations = List.sort_uniq String.compare !citations in
   (comment, citations)
 
-let upload_post ?image_content post =
+let upload_post ~image post =
   let thread_data, reply =
     match post with
     | Op (thread_data, reply) -> (Some thread_data, reply)
@@ -319,15 +323,14 @@ let upload_post ?image_content post =
   let^ () = Db.exec Q.upload_post_comment (id, comment) in
   let^ () = Db.exec Q.upload_post_date (id, date) in
   let^ () = Db.exec Q.upload_thread_post (parent_id, id) in
-  let _res_image_info, _res_image_content =
-    match image_info with
-    | None -> (Ok (), Ok ())
-    | Some (name, alt) -> (
-      match image_content with
-      | None -> failwith "No image_content for a post with image"
-      | Some content ->
-        ( Db.exec Q.upload_image_info (id, name, alt)
-        , Db.exec Q.upload_image_content (id, content) ) )
+  let* () =
+    match image with
+    | None -> Ok ()
+    | Some image ->
+      assert (Option.is_some image_info);
+      let^ () = Db.exec Q.upload_image_info (id, image.name, image.alt) in
+      let^ () = Db.exec Q.upload_image_content (id, image.content) in
+      Ok ()
   in
   let^ _unit_list =
     unwrap_list (fun tag -> Db.exec Q.upload_post_tag (id, tag)) tags
@@ -343,52 +346,44 @@ let upload_post ?image_content post =
     let^ () = Db.exec Q.upload_thread_info (id, subject, lat, lng) in
     Ok id
 
-let build_reply ~comment ?image ~tag_list ?parent_id user_id =
+let build_reply ~comment ~image_info ~tag_list ?parent_id user_id =
   let comment = Dream.html_escape comment in
   let id = Uuidm.to_string (Uuidm.v4_gen random_state ()) in
   (* parent_id is None if this reply is supposed to be a new thread *)
   let parent_id = Option.value parent_id ~default:id in
   if Option.is_none (Uuidm.of_string parent_id) then Error "invalid thread id"
   else if String.length comment > 10000 then Error "invalid comment"
+  else if List.length tag_list > 30 then Error "too much tags"
+  else if List.exists (fun tag -> String.length tag > 100) tag_list then
+    Error "tag too long"
   else
-    match parse_image image with
-    | Error e -> Error e
-    | Ok image ->
-      if List.length tag_list > 30 then Error "too much tags"
-      else if List.exists (fun tag -> String.length tag > 100) tag_list then
-        Error "tag too long"
-      else
-        let image_info =
-          match image with
-          | None -> None
-          | Some (image_info, _image_content) -> Some image_info
-        in
-        let tag_list =
-          List.map String.lowercase_ascii
-          @@ List.sort_uniq String.compare
-          @@ List.filter (( <> ) "")
-          @@ List.map String.trim
-          @@ List.map Dream.html_escape tag_list
-        in
-        let date = Unix.time () in
-        let comment, citations = parse_comment comment in
-        let* nick = User.get_nick user_id in
-        let reply =
-          { id
-          ; parent_id
-          ; date
-          ; user_id
-          ; nick
-          ; comment
-          ; image_info
-          ; tags = tag_list
-          ; replies = []
-          ; citations
-          }
-        in
-        Ok reply
+    let tag_list =
+      List.map String.lowercase_ascii
+      @@ List.sort_uniq String.compare
+      @@ List.filter (( <> ) "")
+      @@ List.map String.trim
+      @@ List.map Dream.html_escape tag_list
+    in
+    let date = Unix.time () in
+    let comment, citations = parse_comment comment in
+    let* nick = User.get_nick user_id in
+    let reply =
+      { id
+      ; parent_id
+      ; date
+      ; user_id
+      ; nick
+      ; comment
+      ; image_info
+      ; tags = tag_list
+      ; replies = []
+      ; citations
+      }
+    in
+    Ok reply
 
-let build_op ~comment ?image ~tag_list ~categories ~subject ~lat ~lng user_id =
+let build_op ~comment ~image_info ~tag_list ~categories ~subject ~lat ~lng
+    user_id =
   let subject = Dream.html_escape subject in
   if List.exists (fun s -> not (List.mem s App.categories)) categories then
     Error "Invalid category"
@@ -400,30 +395,39 @@ let build_op ~comment ?image ~tag_list ~categories ~subject ~lat ~lng user_id =
     else if String.length subject > 600 then Error "Invalid subject"
     else
       let thread_data = { subject; lng; lat } in
-      let* reply =
-        match image with
-        | Some image -> build_reply ~comment ~image ~tag_list user_id
-        | None -> build_reply ~comment ~tag_list user_id
-      in
-      let op = Op (thread_data, reply) in
+      let* reply = build_reply ~comment ~image_info ~tag_list user_id in
+      let op = (thread_data, reply) in
       Ok op
 
-let make_reply ~comment ?image ~tags ~parent_id user_id =
-  let tag_list = Str.split (Str.regexp ",+") tags in
-  let* reply = build_reply ~comment ?image ~tag_list ~parent_id user_id in
-  let post = Post reply in
-  match image with
-  | None -> upload_post post
-  | Some (_image_info, image_content) -> upload_post ~image_content post
+let build_image image_input =
+  let* name, alt, content = clean_image image_input in
+  let image = { name; alt; content } in
+  Ok image
 
-let make_op ~comment ?image ~tags ~categories ~subject ~lat ~lng user_id =
-  let tag_list = Str.split (Str.regexp ",+") tags in
-  let* op =
-    build_op ~comment ?image ~tag_list ~categories ~subject ~lat ~lng user_id
+let make_post ~comment ?image_input ~tags ~op_or_reply_data user_id =
+  let tag_list = String.split_on_char ',' tags in
+  let* image, image_info =
+    match image_input with
+    | None -> Ok (None, None)
+    | Some image_input ->
+      let* image = build_image image_input in
+      Ok (Some image, Some (image.name, image.alt))
   in
-  match image with
-  | None -> upload_post op
-  | Some (_image_info, image_content) -> upload_post ~image_content op
+  let* post =
+    match op_or_reply_data with
+    | `Reply_data parent_id ->
+      let* reply =
+        build_reply ~comment ~image_info ~tag_list ~parent_id user_id
+      in
+      Ok (Post reply)
+    | `Op_data (categories, subject, lat, lng) ->
+      let* thread_data, reply =
+        build_op ~comment ~image_info ~tag_list ~categories ~subject ~lat ~lng
+          user_id
+      in
+      Ok (Op (thread_data, reply))
+  in
+  upload_post ~image post
 
 let get_post_image_content id =
   let^? content = Db.find_opt Q.get_post_image_content id in
