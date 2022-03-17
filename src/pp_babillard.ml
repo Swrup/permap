@@ -2,6 +2,22 @@ include Bindings
 include Babillard
 open Db
 
+type moderation_action =
+  | Ignore
+  | Delete
+  | Banish
+
+let moderation_action_to_string = function
+  | Ignore -> "ignore"
+  | Delete -> "delete"
+  | Banish -> "banish"
+
+let moderation_action_from_string = function
+  | "ignore" -> Some Ignore
+  | "delete" -> Some Delete
+  | "banish" -> Some Banish
+  | _ -> None
+
 let pp_post fmt t =
   let thread_data_opt, post =
     match t with
@@ -177,16 +193,16 @@ let pp_report fmt post report request =
     Format.fprintf fmt
       {|<input value="%s" name="post_id" type="hidden"></input>|} id
   in
-  let button fmt value =
+  let button fmt action =
+    let s = moderation_action_to_string action in
     Format.fprintf fmt
       {|<button value="%s" name="action" type="submit" class="btn btn-primary">%s</button>|}
-      value
-      (String.uppercase_ascii value)
+      s (String.uppercase_ascii s)
   in
-  let form fmt value =
+  let form fmt action =
     Format.fprintf fmt {|%s %a %a </form>|}
       (Dream.form_tag ~action:url request)
-      input_post_id id button value
+      input_post_id id button action
   in
 
   Format.fprintf fmt
@@ -210,8 +226,7 @@ let pp_report fmt post report request =
     </div>
 </div><br>
 |}
-    pp_post (Post post) reporter_nick reason form "ignore" form "delete" form
-    "banish"
+    pp_post (Post post) reporter_nick reason form Ignore form Delete form Banish
 
 let admin_page_content posts reports request =
   let posts_reports = List.combine posts reports in

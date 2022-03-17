@@ -321,8 +321,7 @@ let update_metadata count label content user_id =
         let^ () = Db.exec Q.upload_metadata (user_id, s) in
         Ok ()
 
-let pp_metadata fmt pair =
-  let label, content = pair in
+let pp_metadata fmt (label, content) =
   Format.fprintf fmt
     {|
 <div class="row">
@@ -332,8 +331,7 @@ let pp_metadata fmt pair =
     |}
     label content
 
-let pp_metadata_form fmt is_last count pair request =
-  let label, content = pair in
+let pp_metadata_form fmt is_last count (label, content) request =
   let form_tag = Dream.form_tag ~action:"/profile" request in
   let button_text = if is_last then "Add" else "Save" in
   Format.fprintf fmt

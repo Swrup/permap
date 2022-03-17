@@ -115,11 +115,13 @@ let admin_post request =
           | Error _e as e -> e
           | Ok post -> (
             let evil_user_id = post.user_id in
-            match action with
-            | "delete" -> Babillard.try_delete_post ~user_id:evil_user_id id
-            | "banish" -> User.banish evil_user_id
-            | "ignore" -> Babillard.ignore_report id
-            | a -> Error (Format.sprintf "invalid action: `%s`" a) )
+            match Babillard.moderation_action_from_string action with
+            | None -> Error "Invalid action"
+            | Some action -> (
+              match action with
+              | Delete -> Babillard.try_delete_post ~user_id:evil_user_id id
+              | Banish -> User.banish evil_user_id
+              | Ignore -> Babillard.ignore_report id ) )
         in
         match res with
         | Error e -> render_unsafe e request
