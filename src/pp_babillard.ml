@@ -2,22 +2,6 @@ include Bindings
 include Babillard
 open Db
 
-type moderation_action =
-  | Ignore
-  | Delete
-  | Banish
-
-let moderation_action_to_string = function
-  | Ignore -> "ignore"
-  | Delete -> "delete"
-  | Banish -> "banish"
-
-let moderation_action_from_string = function
-  | "ignore" -> Some Ignore
-  | "delete" -> Some Delete
-  | "banish" -> Some Banish
-  | _ -> None
-
 let pp_post fmt t =
   let thread_data_opt, post =
     match t with
