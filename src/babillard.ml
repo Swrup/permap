@@ -287,39 +287,26 @@ let clean_image image =
   else Ok (name, alt, content)
 
 let make_thumbnail content =
-  try
-    let filename =
-      Filename.concat "/tmp" (Uuidm.to_string (Uuidm.v4_gen random_state ()))
-    in
-    let thumb_filename = filename ^ "_small" in
-    let oc = open_out filename in
-    let fmt = Format.formatter_of_out_channel oc in
-    Format.fprintf fmt "%s" content;
-    close_out oc;
-    let command =
-      Format.sprintf
-        "convert -define jpeg:size=700x700 %s -auto-orient -thumbnail \
-         '300x300>' -unsharp 0x.5 -format jpg %s"
-        filename thumb_filename
-    in
-    let resize_exit_code = Sys.command command in
-    if resize_exit_code <> 0 then
-      Error
-        (Format.sprintf "thumbnail: resize command failed with exit code: %d"
-           resize_exit_code )
-    else
-      let ic = open_in thumb_filename in
-      let thumbnail = really_input_string ic (in_channel_length ic) in
-      close_in ic;
+  let open Bos in
+  (* jpp *)
+  let ( let* ) o f =
+    Result.fold ~ok:f ~error:(function `Msg s -> Result.error s) o
+  in
 
-      let delete = Format.sprintf "rm %s; rm %s" filename thumb_filename in
-      let delete_exit_code = Sys.command delete in
-      if delete_exit_code <> 0 then
-        Error
-          (Format.sprintf "thumbnail: delete command failed with exit code: %d"
-             delete_exit_code )
-      else Ok thumbnail
-  with Sys_error e -> Error e
+  let* image_file = OS.File.tmp "%s" in
+  let* thumb_file = OS.File.tmp "%s_thumb" in
+  let* () = OS.File.write image_file content in
+  let cmd =
+    Cmd.(
+      v "convert" % "-define" % "jpeg:size=700x700" % p image_file
+      % "-auto-orient" % "-thumbnail" % "300x300>" % "-unsharp" % "0x.5"
+      % "-format" % "jpg" % p thumb_file)
+  in
+  let* () = OS.Cmd.run cmd in
+  let* thumbnail = OS.File.read thumb_file in
+  let* () = OS.File.delete image_file in
+  let* () = OS.File.delete thumb_file in
+  Ok thumbnail
 
 (*TODO switch to markdown !*)
 (* insert html into the comment, and keep tracks of citations :
