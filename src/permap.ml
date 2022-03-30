@@ -1,26 +1,4 @@
-include Bindings
-
-let get_title content =
-  let open Soup in
-  try
-    let soup = content |> parse in
-    soup $ "h1" |> R.leaf_text
-  with Failure _e -> "Permap"
-
-let render ?title content request =
-  let title =
-    match title with None -> get_title content | Some title -> title
-  in
-  Dream.html
-  @@ Template.render_unsafe ~title:(Dream.html_escape title)
-       ~content:(Dream.html_escape content)
-       request
-
-let render_unsafe ?title content request =
-  let title =
-    match title with None -> get_title content | Some title -> title
-  in
-  Dream.html @@ Template.render_unsafe ~title ~content request
+open Template_utils
 
 let not_logged_in redirect request =
   let content =
@@ -484,6 +462,9 @@ let routes =
   ; get_ "/catalog" catalog
   ; get_ "/delete/:post_id" delete_get
   ; post "/delete/:post_id" delete_post
+  ; get_ "/discuss" Discuss.render
+  ; get_ "/discuss/:comrade_id" Discuss.render_one
+  ; post "/discuss/:comrade_id" Discuss.post
   ; get_ "/img/:post_id" (get_post_image ~thumbnail:false)
   ; get_ "/img/s/:post_id" (get_post_image ~thumbnail:true)
   ; get_ "/login" login_get

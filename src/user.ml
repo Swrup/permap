@@ -387,11 +387,12 @@ let public_profile user_id =
       <div class="col-md-6">
         <img src="/user/%s/avatar" class="img-thumbnail" alt="Your avatar picture">
       </div>
+      <a href="/discuss/%s">Speak to me !</a>
       <div class="col-md-6">
         %a
       </div>
     </div>
 |}
-      user.nick user.bio user.nick pp_metadata_table user.metadata
+      user.nick user.bio user.nick user_id pp_metadata_table user.metadata
   in
   Ok user_info

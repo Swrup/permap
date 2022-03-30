@@ -27,6 +27,11 @@ let render_unsafe ~title ~content request =
                           <li class="nav-item">
                               <a class="nav-link" href="/user">Discover users</a>
                           </li>
+% begin if Option.is_some @@ Dream.session "nick" request then
+                          <li class="nav-item">
+                              <a class="nav-link" href="/discuss">Discuss</a>
+                          </li>
+% end;
                       </ul>
                       <ul class="navbar-nav ms-auto mb-2 mb-md-0">
 % begin match Dream.session "nick" request with

@@ -9,12 +9,14 @@
   content
   db
   delete_page
+  discuss
   login
   permap
   pp_babillard
   register
   report_page
   template
+  template_utils
   thread_page
   user
   user_account
